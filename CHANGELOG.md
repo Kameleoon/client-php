@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.0.7
+* Performance improvements
+
 ## 2.0.6
 * Retrieve experiments with status used_as_personalization
 * Update job to handle json
