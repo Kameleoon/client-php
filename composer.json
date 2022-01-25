@@ -1,0 +1,19 @@
+{
+    "name": "kameleoon/kameleoon-client-php",
+    "versions": "2.0.8",
+    "description": "Kameleoon SDK PHP",
+    "keywords": ["kameleoon", "sdk"],
+    "license": "AGPL-3.0-or-later",
+    "authors": [
+    {
+        "name": "Kameleoon",
+        "email": "sdk@kameleoon.com",
+        "homepage": "https://developers.kameleoon.com/php-sdk.html"
+    }
+    ],
+    "autoload": {
+      "psr-4": {
+        "Kameleoon\\": "kameleoon/client/src/"
+      }
+    }
+}

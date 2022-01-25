@@ -1,0 +1,1 @@
+* * * * * bash /usr/local/opt/bin/kameleoon-client-php-process-queries.sh 1>> kameleoon-client-php-process-queries_output.log 2>> /var/log/kameleoon-client-php-process-queries_error.log
