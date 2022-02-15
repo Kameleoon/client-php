@@ -94,7 +94,7 @@ class KameleoonQuery
         }';
     }
 
-    static function featureFlagQuery(string $siteCode): string {
+    static function featureFlagQuery(string $siteCode, string $environment): string {
         return '
         {
             "operationName": "getFeatureFlags",
@@ -108,7 +108,7 @@ class KameleoonQuery
                                 id
                                 code
                                 isKameleoonEnabled
-                            } 
+                            }
                             bypassDeviation
                             status
                             variations {
@@ -172,6 +172,12 @@ class KameleoonQuery
                             "field": "siteCode",
                             "operator": "IN",
                             "parameters": ["' . $siteCode . '"]
+                        }
+                    }, {
+                        "condition": {
+                            "field": "environment.key",
+                            "operator": "IN",
+                            "parameters": ["' . $environment . '"]
                         }
                     }]
                 },

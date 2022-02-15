@@ -46,6 +46,7 @@ class KameleoonClientImpl implements KameleoonClient
     private $targetingData;
     private $configurationLoaded;
     private $cookieOptions;
+    private $environment = "production"; 
 
     public function __construct($siteCode, $blocking, $configurationFilePath, $clientId, $clientSecret)
     {
@@ -74,6 +75,7 @@ class KameleoonClientImpl implements KameleoonClient
         }
         $this->clientId = isset($this->commonConfiguration["client_id"]) ? $this->commonConfiguration["client_id"] : $clientId;
         $this->clientSecret = isset($this->commonConfiguration["client_secret"]) ? $this->commonConfiguration["client_secret"] : $clientSecret;
+        $this->environment = isset($this->commonConfiguration["environment"]) ? $this->commonConfiguration["environment"] : $this->environment;
 
         if (null == $this->clientId || null == $this->clientSecret) {
             throw new CredentialsNotFound("Credentials not found!");
@@ -134,6 +136,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function activateFeature($visitorCode, $featureId, $timeOut = 2000)
 	{
+        $this->checkFeatureIdIsString($featureId);
         $this->validateVisitorCode($visitorCode);
         if(isset($this->configurations->featureFlags[strval($featureId)]) == false) {
             $this->loadConfiguration($timeOut);
@@ -161,7 +164,7 @@ class KameleoonClientImpl implements KameleoonClient
                         foreach ($ffConf->variationConfigurations as $vid => $variationConfiguration) {
                             $total += $variationConfiguration->deviation;
                             if ($total >= $hashDouble) {
-                                $result = true;
+                                $result = $vid != 0;
                                 $variationId = $vid;
                                 break;
                             }
@@ -525,7 +528,7 @@ class KameleoonClientImpl implements KameleoonClient
             $ffRequest = curl_init(self::API_URL . "/v1/graphql?perPage=-1");
             curl_setopt($ffRequest,CURLOPT_TIMEOUT, $timeOut);
             curl_setopt($ffRequest, CURLOPT_CUSTOMREQUEST, "POST");
-            curl_setopt($ffRequest, CURLOPT_POSTFIELDS, KameleoonQuery::featureFlagQuery($this->siteCode));
+            curl_setopt($ffRequest, CURLOPT_POSTFIELDS, KameleoonQuery::featureFlagQuery($this->siteCode, $this->environment));
             curl_setopt($ffRequest, CURLOPT_RETURNTRANSFER, 1);
             curl_setopt($ffRequest, CURLOPT_HTTPHEADER, array(
                 'Content-Type: application/json',
@@ -731,6 +734,8 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function obtainFeatureVariable($featureIdOrName, $variableName)
     {
+        $this->checkFeatureIdIsString($featureIdOrName);
+        
         $BOOLEAN_TYPE = "Boolean"; $STRING_TYPE = "String"; $NUMBER_TYPE = "Number"; $JSON_TYPE = "JSON";
 
         //check that configuration is loaded
@@ -739,7 +744,7 @@ class KameleoonClientImpl implements KameleoonClient
         $result = null;
         foreach ($this->configurations->featureFlags as $id => $ff) {
             foreach ($ff->variationConfigurations as $vid => $variationConfiguration) {
-                if ($id == $featureIdOrName || strval($id) == $featureIdOrName || $featureIdOrName == $ff->identificationKey) {
+                if ($featureIdOrName == $ff->identificationKey || $id == $featureIdOrName || strval($id) == $featureIdOrName) {
                     try {
                         if ($vid != 0)
                         {
@@ -782,6 +787,12 @@ class KameleoonClientImpl implements KameleoonClient
     private function checkSiteCodeEnable($expOrFF) {
         if (!$expOrFF->isSiteCodeEnabled) {
             throw new SiteCodeDisabled("Sitecode '" . $this->siteCode . "' disabled");
+        }
+    }
+
+    private function checkFeatureIdIsString($featureId) {
+        if (gettype($featureId) != "string") {
+            error_log(print_r("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `integer` type will be removed in next releases", TRUE)); 
         }
     }
 }
