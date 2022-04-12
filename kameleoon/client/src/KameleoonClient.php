@@ -11,4 +11,5 @@ interface KameleoonClient
     public function obtainVisitorCode($topLevelDomain, $visitorCode = NULL);
     public function obtainVariationAssociatedData($variationId);
     public function obtainFeatureVariable($featureIdOrName, $variableName);
+    public function retrieveDataFromRemoteSource($key, $timeOut = 2000);
 }

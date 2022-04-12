@@ -16,6 +16,7 @@ use Kameleoon\Targeting\TargetingSegment;
 use Kameleoon\Targeting\TargetingTreeBuilder;
 
 use Kameleoon\Network\KameleoonQuery;
+use Kameleoon\Helpers\URLEncoding;
 
 require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Helpers'.DIRECTORY_SEPARATOR.'Version.php');
 
@@ -25,6 +26,7 @@ class KameleoonClientImpl implements KameleoonClient
     const DEFAULT_TIMEOUT_MILLISECONDS = 2000;
     const API_URL = "https://api.kameleoon.com";
     const API_SSX_URL = "https://api-ssx.kameleoon.com";
+    const API_DATA_URL = "https://api-data.kameleoon.com";
     const HEXADECIMAL_ALPHABET = "0123456789ABCDEF";
     const NONCE_BYTE_LENGTH = 8;
     const DEFAULT_KAMELEOON_WORK_DIR = "/tmp/kameleoon/php-client/";
@@ -455,6 +457,11 @@ class KameleoonClientImpl implements KameleoonClient
         return static::API_SSX_URL . "/dataTracking?" . $this->getCommonSSXParameters($visitorCode);
     }
 
+    private function getAPIDataRequestURL($key)
+    {
+        return static::API_DATA_URL . "/data?siteCode=" . $this->siteCode . "&key=" . URLEncoding::encodeURIComponent($key);
+    }
+
     private function getExperimentRegisterURL($visitorCode, $experimentID, $variationId = null, $noneVariation = null)
     {
         $url = static::API_SSX_URL . "/experimentTracking?" . $this->getCommonSSXParameters($visitorCode) . "&experimentId=" . $experimentID . "";
@@ -631,6 +638,20 @@ class KameleoonClientImpl implements KameleoonClient
         return $response;
     }
 
+    public function performGetServerCall($url, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
+    {
+        $curl = curl_init($url);
+        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, 'GET');
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_TIMEOUT_MS, $timeOut);
+        $response = curl_exec($curl);
+        if (curl_error($curl)) {
+            throw new Exception(curl_error($curl));
+        }
+        curl_close($curl);
+        return $response;
+    }
+
     private function getRequestsFileName()
     {
         return "requests-" . floor(time() / 60) . ".sh";
@@ -772,6 +793,11 @@ class KameleoonClientImpl implements KameleoonClient
             throw new FeatureConfigurationNotFound("Feature configuration not found");
         }
         return $result;
+    }
+
+    public function retrieveDataFromRemoteSource($key, $timeout = 2000) {
+        $response = $this->performGetServerCall($this->getAPIDataRequestURL($key), $timeout);
+        return json_decode($response);
     }
 
     private function validateVisitorCode($visitorCode) {
