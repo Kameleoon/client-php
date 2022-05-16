@@ -9,7 +9,7 @@ class Browser implements DataInterface {
     private $browser;
     private $nonce;
 
-    public function __construct($browser)
+    public function __construct(int $browser)
     {
         $this->browser = $browser;
         $this->nonce = KameleoonClientImpl::obtainNonce();

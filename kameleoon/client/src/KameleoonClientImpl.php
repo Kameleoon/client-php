@@ -84,7 +84,7 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    public function trackConversion($visitorCode, $goalID, $revenue = 0.0)
+    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0)
     {
         $this->addData($this->validateVisitorCode($visitorCode), new Data\Conversion($goalID));
         $this->flush($visitorCode);

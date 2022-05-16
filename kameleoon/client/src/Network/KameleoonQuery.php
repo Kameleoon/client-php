@@ -89,7 +89,8 @@ class KameleoonQuery
                 "sort": [{
                     "field": "id",
                     "direction": "ASC"
-                }]
+                }],
+                "first":100
             }
         }';
     }
@@ -184,7 +185,8 @@ class KameleoonQuery
                 "sort": [{
                     "field": "id",
                     "direction": "ASC"
-                }]
+                }],
+                "first":100
             }
         }';
     }

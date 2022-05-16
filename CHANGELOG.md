@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.1 - 2022-05-16
+* Added KameleoonData [`Device`](https://developers.kameleoon.com/php-sdk.html#device) data. Possible values are: **PHONE**, **TABLET**, **DESKTOP**. 
+* Removed KameleoonData `Interest`
+* Fixed security issue
+
 ## 2.1.0 - 2022-04-12
 * Added method for retrieving data from remote source: [`retrieveDataFromRemoteSource`](https://developers.kameleoon.com/php-sdk.html#retrievedatafromremotesource)
 

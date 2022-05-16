@@ -10,7 +10,7 @@ class CustomData implements DataInterface
     private $value;
     private $nonce;
 
-    public function __construct($id, string $value)
+    public function __construct(int $id, string $value)
     {
         $this->id = $id;
         $this->value = $value;

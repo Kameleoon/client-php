@@ -11,7 +11,7 @@ class PageView implements DataInterface
     private $referrer;
     private $nonce;
 
-    public function __construct($url, $title, $referrer)
+    public function __construct($url, $title, int $referrer = null)
     {
         $this->url = $url;
         $this->title = $title;
@@ -21,6 +21,6 @@ class PageView implements DataInterface
 
     public function obtainFullPostTextLine ()
     {
-        return "eventType=page&href=" . URLEncoding::encodeURIComponent($this->url) . "&title=" . $this->title . "&keyPages=[]" . ($this->referrer == null ? "" : "&referrers=[" . $this->referrer . "]") . "&nonce=" . $this->nonce;
+        return "eventType=page&href=" . URLEncoding::encodeURIComponent($this->url) . "&title=" . URLEncoding::encodeURIComponent($this->title) . ($this->referrer == null ? "" : "&referrers=[" . $this->referrer . "]") . "&nonce=" . $this->nonce;
     }
 }
