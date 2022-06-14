@@ -115,10 +115,7 @@ class KameleoonClientImpl implements KameleoonClient
                             break;
                         }
                     }
-                    $data = "";
-                    foreach ($this->getUnsentData($visitorCode) as $d) {
-                        $data .= $d->obtainFullPostTextLine() . "\n";
-                    }
+                    $data = $this->getAndClearUnsentData($visitorCode);
                     $this->writeRequestToFile($this->getExperimentRegisterURL($visitorCode, $experimentID, $variationId, $noneVariation), $data);
 
                     if ($noneVariation)
@@ -171,10 +168,7 @@ class KameleoonClientImpl implements KameleoonClient
                                 break;
                             }
                         }
-                        $data = "";
-                        foreach ($this->getUnsentData($visitorCode) as $d) {
-                            $data .= $d->obtainFullPostTextLine() . "\n";
-                        }
+                        $data = $this->getAndClearUnsentData($visitorCode);
                         $this->writeRequestToFile($this->getExperimentRegisterURL($visitorCode, $featureId, $variationId, false), $data);
                     } else {
                         return $result;
@@ -608,12 +602,8 @@ class KameleoonClientImpl implements KameleoonClient
     {
         if (!is_null($visitorCode)) {
             $this->validateVisitorCode($visitorCode);
-            $data = "";
-            foreach ($this->getUnsentData($visitorCode) as $d) {
-                $data .= $d->obtainFullPostTextLine() . PHP_EOL;
-            }
+            $data = $this->getAndClearUnsentData($visitorCode);
             $this->writeRequestToFile($this->getDataTrackingURL($visitorCode), $data);
-            $this->emptyUnsentData($visitorCode);
         } else {
             foreach ($this->getUnsentUsers() as $user) {
                 $this->flush($user);
@@ -818,8 +808,17 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function checkFeatureIdIsString($featureId) {
         if (gettype($featureId) != "string") {
-            error_log(print_r("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `integer` type will be removed in next releases", TRUE)); 
+            error_log(print_r("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `int` type will be removed in next releases", TRUE)); 
         }
+    }
+
+    private function getAndClearUnsentData($visitorCode) {
+        $data = "";
+        foreach ($this->getUnsentData($visitorCode) as $d) {
+            $data .= $d->obtainFullPostTextLine() . "\n";
+        }
+        $this->emptyUnsentData($visitorCode);
+        return $data;
     }
 }
 

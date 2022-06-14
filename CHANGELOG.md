@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.2 - 2022-06-14
+* Fixed an issue when tracking data could be sent twice. Related to: [`activateFeature`](https://developers.kameleoon.com/php-sdk.html#activatefeature), [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerexperiment) methods.
+
 ## 2.1.1 - 2022-05-16
 * Added KameleoonData [`Device`](https://developers.kameleoon.com/php-sdk.html#device) data. Possible values are: **PHONE**, **TABLET**, **DESKTOP**. 
 * Removed KameleoonData `Interest`
