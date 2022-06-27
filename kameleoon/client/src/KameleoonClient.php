@@ -12,4 +12,5 @@ interface KameleoonClient
     public function obtainVariationAssociatedData($variationId);
     public function obtainFeatureVariable($featureIdOrName, $variableName);
     public function retrieveDataFromRemoteSource($key, $timeOut = 2000);
+    public function onUpdateConfiguration(callable $onUpdate);
 }

@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.3 - 2022-06-27
+* Significantly improved configuration load time
+* Added update campaigns and feature flag configurations instantaneously with Real-Time Streaming Architecture: [`documentation`](https://developers.kameleoon.com/php-sdk.html#streaming) or [`product updates`](https://www.kameleoon.com/en/blog/real-time-streaming)
+* Fixed issue when already associated visitor could get a new variation from [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerexperiment)
+* Added support for **Experiment** & **Exclusive Campaign** conditions. Related to [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerexperiment)
+
 ## 2.1.2 - 2022-06-14
 * Fixed an issue when tracking data could be sent twice. Related to: [`activateFeature`](https://developers.kameleoon.com/php-sdk.html#activatefeature), [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerexperiment) methods.
 

@@ -1,6 +1,6 @@
 {
     "name": "kameleoon/kameleoon-client-php",
-    "versions": "2.0.9",
+    "versions": "2.1.3",
     "description": "Kameleoon SDK PHP",
     "keywords": ["kameleoon", "sdk"],
     "license": "AGPL-3.0-or-later",
@@ -15,5 +15,8 @@
       "psr-4": {
         "Kameleoon\\": "kameleoon/client/src/"
       }
+    },
+    "require": {
+        "clue/reactphp-eventsource": "^1"
     }
 }

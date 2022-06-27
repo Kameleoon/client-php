@@ -5,6 +5,8 @@ use Kameleoon\Targeting\TargetingCondition;
 
 class CustomDatum extends TargetingCondition
 {
+    const TYPE = "CUSTOM_DATUM";
+    
     private $index;
 
     private $operator;
