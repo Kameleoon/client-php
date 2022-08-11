@@ -1,5 +1,5 @@
 <?php
 
-define("VERSION_SDK", "2.1.3");
+define("VERSION_SDK", "2.1.4");
 
 ?>

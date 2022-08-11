@@ -28,7 +28,7 @@ require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Helpers'.DIRECTORY_SEPARATOR
 class KameleoonClientImpl implements KameleoonClient
 {
     const SECONDS_BETWEEN_CONFIGURATION_UPDATE = 3600;
-    const DEFAULT_TIMEOUT_MILLISECONDS = 2000;
+    const DEFAULT_TIMEOUT_MILLISECONDS = 15000;
     const API_CONFIGURATION_URL = "https://client-config.kameleoon.com";
     const API_SSX_URL = "https://api-ssx.kameleoon.com";
     const API_DATA_URL = "https://api-data.kameleoon.com";
@@ -84,7 +84,7 @@ class KameleoonClientImpl implements KameleoonClient
         }
         $this->environment = isset($this->commonConfiguration["environment"]) ? $this->commonConfiguration["environment"] : $this->environment;
 
-        $this->loadConfiguration(SELF::DEFAULT_TIMEOUT_MILLISECONDS);
+        $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS);
     }
 
     public function __destruct() {
@@ -226,7 +226,7 @@ class KameleoonClientImpl implements KameleoonClient
             } else {
                 $this->updateCampaignConfiguration($timeOut, $timeStamp);
             }
-            $realTimeUpdate = $this->configurations->settings->getRealTimeUpdate();
+            $realTimeUpdate = isset($this->configurations->settings) ? $this->configurations->settings->getRealTimeUpdate() : false;
             $this->manageConfigurationUpdate($realTimeUpdate);
         }
         $this->configurationLoaded = true;
@@ -373,7 +373,7 @@ class KameleoonClientImpl implements KameleoonClient
             $environmentURL = $this->environment != null ? "&environment=" . $this->environment : "";
             $timeStampURL = $timeStamp != 0 ? "&ts=" . strval($timeStamp) : "";
             $configurationRequest = curl_init(self::API_CONFIGURATION_URL . $siteCodeURL . $environmentURL . $timeStampURL);
-            curl_setopt($configurationRequest,CURLOPT_TIMEOUT, $timeOut);
+            curl_setopt($configurationRequest, CURLOPT_TIMEOUT_MS, $timeOut);
             curl_setopt($configurationRequest, CURLOPT_RETURNTRANSFER, 1);
             $configurationOutput = curl_exec($configurationRequest);
             curl_close($configurationRequest);
@@ -400,7 +400,6 @@ class KameleoonClientImpl implements KameleoonClient
             $this->realTimeManager->subscribe($this->getRealTimeConfigurationURL($this->siteCode), function ($data) {
                 $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS, $data->ts);
                 call_user_func($this->onUpdateConfigurationHandler);
-                print_r($data);
             });
         } else if ($this->realTimeManager !== null && !$realTimeUpdate) {
             $this->realTimeManager->unsubscribe();
@@ -883,7 +882,9 @@ class Configurations
         } catch (Exception $e) {
         }
 
-        $configurations->settings = new Settings($json->configuration);
+        if (isset($json->configuration)) {
+            $configurations->settings = new Settings($json->configuration);
+        }
 
         return $configurations;
     }

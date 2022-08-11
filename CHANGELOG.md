@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.4 - 2022-08-11
+* Fixed crash on [`KameleoonClientFactory.create`](https://developers.kameleoon.com/php-sdk.html#create) method.
+
 ## 2.1.3 - 2022-06-27
 * Significantly improved configuration load time
 * Added update campaigns and feature flag configurations instantaneously with Real-Time Streaming Architecture: [`documentation`](https://developers.kameleoon.com/php-sdk.html#streaming) or [`product updates`](https://www.kameleoon.com/en/blog/real-time-streaming)
