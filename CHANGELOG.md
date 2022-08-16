@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.5 - 2022-08-16
+* Added support of PHP 7.x versions
+
 ## 2.1.4 - 2022-08-11
 * Fixed crash on [`KameleoonClientFactory.create`](https://developers.kameleoon.com/php-sdk.html#create) method.
 

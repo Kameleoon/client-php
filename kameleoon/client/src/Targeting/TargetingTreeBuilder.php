@@ -143,7 +143,8 @@ class KIterator implements Iterator {
     public function next(): void {
         $this->i++;
     }
-    public function nextObject(): mixed {
+    #[\ReturnTypeWillChange]
+    public function nextObject() {
         $this->next();
         return $this->current();
     }
@@ -151,10 +152,12 @@ class KIterator implements Iterator {
     {
         return count($this->array) > ($this->i + 1);
     }
-    public function key(): mixed {
+    #[\ReturnTypeWillChange]
+    public function key() {
         return $this->i;
     }
-    public function current(): mixed {
+    #[\ReturnTypeWillChange]
+    public function current() {
         return $this->array[$this->i];
     }
 }
