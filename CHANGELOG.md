@@ -1,6 +1,9 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 2.1.6 - 2022-11-03
+* Fixed issue when SDK fetches configuration on every API request
+
 ## 2.1.5 - 2022-08-16
 * Added support of PHP 7.x versions
 

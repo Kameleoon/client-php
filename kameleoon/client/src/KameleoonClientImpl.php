@@ -2,7 +2,6 @@
 namespace Kameleoon;
 
 use Exception;
-use Kameleoon\Exception\CredentialsNotFound;
 use Kameleoon\Exception\ExperimentConfigurationNotFound;
 use Kameleoon\Exception\FeatureConfigurationNotFound;
 use Kameleoon\Exception\NotActivated;
@@ -28,7 +27,7 @@ require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Helpers'.DIRECTORY_SEPARATOR
 class KameleoonClientImpl implements KameleoonClient
 {
     const SECONDS_BETWEEN_CONFIGURATION_UPDATE = 3600;
-    const DEFAULT_TIMEOUT_MILLISECONDS = 15000;
+    const DEFAULT_TIMEOUT_MILLISECONDS = 5000;
     const API_CONFIGURATION_URL = "https://client-config.kameleoon.com";
     const API_SSX_URL = "https://api-ssx.kameleoon.com";
     const API_DATA_URL = "https://api-data.kameleoon.com";
@@ -147,7 +146,7 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    public function activateFeature($visitorCode, $featureId, $timeOut = 2000)
+    public function activateFeature($visitorCode, $featureId, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
 	{
         $this->checkFeatureIdIsString($featureId);
         $this->validateVisitorCode($visitorCode);
@@ -374,6 +373,7 @@ class KameleoonClientImpl implements KameleoonClient
             $timeStampURL = $timeStamp != 0 ? "&ts=" . strval($timeStamp) : "";
             $configurationRequest = curl_init(self::API_CONFIGURATION_URL . $siteCodeURL . $environmentURL . $timeStampURL);
             curl_setopt($configurationRequest, CURLOPT_TIMEOUT_MS, $timeOut);
+            curl_setopt($configurationRequest, CURLOPT_CONNECTTIMEOUT_MS, $timeOut); 
             curl_setopt($configurationRequest, CURLOPT_RETURNTRANSFER, 1);
             $configurationOutput = curl_exec($configurationRequest);
             curl_close($configurationRequest);
@@ -383,14 +383,23 @@ class KameleoonClientImpl implements KameleoonClient
             {
                 file_put_contents($this->configurationFilePath, $configurationOutput);
                 $this->configurations = Configurations::parse($configuration);
+                clearstatcache();
             }
             else
             {
                 $configuration = json_decode(file_get_contents($this->configurationFilePath, true));
                 $this->configurations = Configurations::parse($configuration);
+                $this->updateConfigurationFileModificationTime();
             }        
         } catch (Exception $e) {
-            
+            $this->updateConfigurationFileModificationTime();
+        }
+    }
+
+    private function updateConfigurationFileModificationTime() {
+        if (file_exists($this->configurationFilePath)) {
+            touch($this->configurationFilePath);
+            clearstatcache();
         }
     }
 
