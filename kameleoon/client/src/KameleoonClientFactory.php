@@ -5,14 +5,14 @@ class KameleoonClientFactory
 {
     private $clients = [];
 
-    public static function create($siteCode, $blocking = false, $configurationFilePath = "/etc/kameleoon/client-php.json")
+    public static function create($siteCode, $configurationFilePath = "/etc/kameleoon/client-php.json")
     {
         if (!in_array($siteCode, self::getInstance()->clients)) {
-            self::getInstance()->clients[$siteCode] = new KameleoonClientImpl($siteCode, $blocking, $configurationFilePath);
+            self::getInstance()->clients[$siteCode] = new KameleoonClientImpl($siteCode, $configurationFilePath);
         }
         return self::getInstance()->clients[$siteCode];
     }
-    
+
     public static function forget($siteCode)
     {
         unset(self::getInstance()->clients[$siteCode]);

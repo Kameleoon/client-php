@@ -6,36 +6,21 @@ use Kameleoon\KameleoonClientImpl;
 
 class Device implements DataInterface
 {
-    public const PHONE = 0;
-    public const TABLET = 1;
-    public const DESKTOP = 2;
+    public const PHONE = "PHONE";
+    public const TABLET = "TABLET";
+    public const DESKTOP = "DESKTOP";
 
-    private const PHONE_STRING = "PHONE";
-    private const TABLET_STRING = "TABLET";
-    private const DESKTOP_STRING = "DESKTOP";
-    
-    private string $type; 
+    private string $type;
     private $nonce;
 
-    public function __construct(int $type)
+    public function __construct(string $type)
     {
-        $this->type = $this->convertType($type);
+        $this->type = $type;
         $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
     public function obtainFullPostTextLine ()
     {
         return "eventType=staticData&deviceType=" . $this->type . "&nonce=" . $this->nonce;
-    }
-
-    private function convertType(int $type) {
-        switch ($type) {
-            case self::PHONE:
-                return self::PHONE_STRING;
-            case self::TABLET:
-                return self::TABLET_STRING;
-            default:
-                return self::DESKTOP_STRING;
-        }
     }
 }

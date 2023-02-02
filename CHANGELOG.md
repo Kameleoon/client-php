@@ -1,6 +1,27 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 3.0.0 - 2023-02-02
+* Added support of new feature flag rules:
+    - [`getFeatureVariationKey`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariationKey)
+    - `obtainFeatureVariable` -> [`getFeatureVariable`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariable)
+    - [`getFeatureAllVariables`](https://developers.kameleoon.com/php-sdk.html#getFeatureAllVariables)
+    - `activateFeature` -> [`isFeatureActive`](https://developers.kameleoon.com/php-sdk.html#isFeatureActive)
+* Methods added for obtaining experiment and feature flag lists:
+    - [`getExperimentList`](https://developers.kameleoon.com/php-sdk.html#getExperimentList)
+    - [`getExperimentListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getExperimentListForVisitor)
+    - [`getFeatureList`](https://developers.kameleoon.com/php-sdk.html#getFeatureList)
+    - [`getActiveFeatureListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getActiveFeatureListForVisitor)
+* Renaming:
+    - `obtainVisitorCode` -> [`getVisitorCode`](https://developers.kameleoon.com/php-sdk.html#getVisitorCode)
+    - `obtainVariationAssociatedData` -> [`getVariationAssociatedData`](https://developers.kameleoon.com/php-sdk.html#getVariationAssociatedData)
+    - `NotActivated` -> `NotAllocated`
+* Changes in Kameleoon Data:
+    - Added possibility to set [`UserAgent`](https://developers.kameleoon.com/php-sdk.html#useragent).
+* Removed blocking mode of SDK.
+* Added support of `is among the values` operator for Custom Data
+
+
 ## 2.1.6 - 2022-11-03
 * Fixed issue when SDK fetches configuration on every API request
 

@@ -17,6 +17,6 @@ class Browser implements DataInterface {
 
     public function obtainFullPostTextLine()
     {
-        return "eventType=staticData&browser=" . $this->browser . "&nonce=" . $this->nonce;
+        return "eventType=staticData&browserIndex=" . $this->browser . "&nonce=" . $this->nonce;
     }
 }

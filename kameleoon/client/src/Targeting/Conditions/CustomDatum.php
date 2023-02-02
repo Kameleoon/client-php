@@ -3,10 +3,12 @@ namespace Kameleoon\Targeting\Conditions;
 
 use Kameleoon\Targeting\TargetingCondition;
 
+use function PHPUnit\Framework\matches;
+
 class CustomDatum extends TargetingCondition
 {
     const TYPE = "CUSTOM_DATUM";
-    
+
     private $index;
 
     private $operator;
@@ -112,6 +114,14 @@ class CustomDatum extends TargetingCondition
                 case "FALSE":
                     if ($customDatum->getValue() == "false") {
                         $targeting = true;
+                    }
+                    break;
+                case "AMONG_VALUES":
+                    $matches = array();
+                    if (preg_match_all('/"([^"]*)"/', $this->value, $matches)
+                        && count($matches) > 1
+                        && count($matches[1]) > 0) {
+                        $targeting = in_array($customDatum->getValue(), $matches[1]);
                     }
                     break;
             }

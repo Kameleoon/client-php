@@ -15,8 +15,5 @@
       "psr-4": {
         "Kameleoon\\": "kameleoon/client/src/"
       }
-    },
-    "require": {
-        "clue/reactphp-eventsource": "^1"
     }
 }

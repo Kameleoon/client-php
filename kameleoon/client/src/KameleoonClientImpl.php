@@ -2,32 +2,36 @@
 namespace Kameleoon;
 
 use Exception;
+use Kameleoon\Data\UserAgent;
 use Kameleoon\Exception\ExperimentConfigurationNotFound;
 use Kameleoon\Exception\FeatureConfigurationNotFound;
-use Kameleoon\Exception\NotActivated;
+use Kameleoon\Exception\NotAllocated;
 use Kameleoon\Exception\NotTargeted;
 use Kameleoon\Exception\VariationConfigurationNotFound;
 use Kameleoon\Exception\InvalidArgumentException;
 use Kameleoon\Exception\SiteCodeDisabled;
 use Kameleoon\Exception\VisitorCodeNotValid;
 use Kameleoon\Targeting\TargetingData;
-use Kameleoon\Targeting\TargetingSegment;
-use Kameleoon\Targeting\TargetingTreeBuilder;
 
 use Kameleoon\Helpers\URLEncoding;
-use Kameleoon\RealTime\RealTimeConfigurationService;
 use Kameleoon\Storage\VariationStorage;
 use Kameleoon\Targeting\Conditions\CustomDatum;
 use Kameleoon\Targeting\Conditions\ExclusiveExperiment;
 use Kameleoon\Targeting\Conditions\TargetedExperiment;
 use Kameleoon\Targeting\TargetingEngine;
 
+use Kameleoon\Configuration\Configuration;
+use Kameleoon\Configuration\Experiment;
+use Kameleoon\Configuration\FeatureFlagV2;
+use Kameleoon\Configuration\Rule;
+use Kameleoon\Configuration\Variation;
+use Kameleoon\Exception\FeatureVariableNotFound;
+
 require_once(dirname(__FILE__).DIRECTORY_SEPARATOR.'Helpers'.DIRECTORY_SEPARATOR.'Version.php');
 
 class KameleoonClientImpl implements KameleoonClient
 {
     const SECONDS_BETWEEN_CONFIGURATION_UPDATE = 3600;
-    const DEFAULT_TIMEOUT_MILLISECONDS = 5000;
     const API_CONFIGURATION_URL = "https://client-config.kameleoon.com";
     const API_SSX_URL = "https://api-ssx.kameleoon.com";
     const API_DATA_URL = "https://api-data.kameleoon.com";
@@ -39,7 +43,6 @@ class KameleoonClientImpl implements KameleoonClient
     const VISITOR_CODE_MAX_LENGTH = 255;
 
     private $siteCode;
-    private $blockingClient;
     private $configurations;
     private $unsentData;
     private $configurationFilePath;
@@ -51,15 +54,14 @@ class KameleoonClientImpl implements KameleoonClient
     private $targetingData;
     private $configurationLoaded;
     private $cookieOptions;
-    private $environment = null; 
+    private $environment = null;
     private $realTimeManager = null;
-    private $onUpdateConfigurationHandler = null;
     private $variationStorage;
+    private $userAgentData = null;
 
-    public function __construct($siteCode, $blocking, $configurationFilePath)
+    public function __construct($siteCode, $configurationFilePath)
     {
         $this->siteCode = $siteCode;
-        $this->blockingClient = $blocking;
         $this->configurations = (object) array(
             "experiments" => array(),
             "featureFlags" => array()
@@ -68,6 +70,7 @@ class KameleoonClientImpl implements KameleoonClient
         $this->targetingData = array();
         $this->configurationLoaded = false;
         $this->variationStorage = new VariationStorage();
+        $this->userAgentData = array();
 
         $this->commonConfiguration = ConfigurationParser::parse($configurationFilePath);
         $this->kameleoonWorkDir = isset($this->commonConfiguration["kameleoon_work_dir"]) ? $this->commonConfiguration["kameleoon_work_dir"] : self::DEFAULT_KAMELEOON_WORK_DIR;
@@ -86,10 +89,100 @@ class KameleoonClientImpl implements KameleoonClient
         $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS);
     }
 
-    public function __destruct() {
-        if ($this->realTimeManager !== null) {
-            $this->realTimeManager->unsubscribe();
+    /*
+     * API Methods (Public Methods)
+     */
+
+    public function triggerExperiment($visitorCode, $experimentID, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
+    {
+        $this->validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeOut);
+        $variationId = "reference";
+        if (array_key_exists($experimentID, $this->configurations->experiments)) {
+            $xpConf = $this->configurations->experiments[$experimentID];
+            $this->checkSiteCodeEnable($xpConf);
+            if ($this->checkTargeting($visitorCode, $experimentID, $xpConf))
+            {
+                $noneVariation = true;
+                $variationId = 0;
+                $savedVariation = $this->variationStorage->getSavedVariation($visitorCode, $xpConf);
+                if (!is_null($savedVariation)) {
+                    $noneVariation = false;
+                    $variationId = $savedVariation;
+                } else {
+                    $calculatedVariationId = $this->calculateVariationForExperiment($visitorCode, $xpConf);
+                    if(!is_null($calculatedVariationId)) {
+                        $noneVariation = false;
+                        $variationId = $calculatedVariationId;
+                        $this->variationStorage->saveVariation($visitorCode, $experimentID, $variationId);
+                    }
+                }
+                $data = $this->getAndClearUnsentData($visitorCode);
+                $this->writeRequestToFile(
+                    $this->getExperimentRegisterURL($visitorCode, $experimentID, $variationId, $noneVariation),
+                    $data,
+                    $this->getUserAgent($visitorCode)
+                );
+                if ($noneVariation)
+                {
+                    throw new NotAllocated("Visitor {$visitorCode} isn't allocated for experiment {$experimentID}");
+                }
+                return $variationId;
+            } else {
+                throw new NotTargeted("Visitor {$visitorCode} isn't targeted for experiment {$experimentID}");
+            }
+        } else {
+            throw new ExperimentConfigurationNotFound("Experiment configuration {$experimentID} isn't found");
         }
+    }
+
+    /**
+     * @deprecated deprecated since version 3.0.0. Please use `isFeatureActive`
+     */
+    public function activateFeature(
+        string $visitorCode,
+        string $featureKey,
+        int $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS): bool
+	{
+        error_log("Deprecated: `activateFeature` is deprecated. Please use `isFeatureActive`instead ");
+        return $this->isFeatureActive($visitorCode, $featureKey, $timeOut);
+	}
+
+    public function getFeatureVariationKey(
+        string $visitorCode,
+        string $featureKey,
+        int $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS): string
+    {
+        [, $variationKey] = $this->_getFeatureVariationKey($visitorCode, $featureKey, $timeOut);
+        return $variationKey;
+    }
+
+    public function getFeatureVariable(
+        string $visitorCode,
+        string $featureKey,
+        string $variableName,
+        int $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS): array|object|string|float|int|bool|null
+    {
+        [$featureFlag, $variationKey] = $this->_getFeatureVariationKey($visitorCode, $featureKey, $timeOut);
+        $variation = $featureFlag->getVariation($variationKey);
+        if (is_null($variation)) {
+            return null;
+        }
+        $variable = $variation->getVariable($variableName);
+        if (!is_null($variable)) {
+            return $variable->getValue();
+        } else {
+            throw new FeatureVariableNotFound("Feature variable {$variableName} not found");
+        }
+    }
+
+    public function isFeatureActive(
+        string $visitorCode,
+        string $featureKey,
+        int $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS): bool
+    {
+        [$ff, $variationKey] = $this->_getFeatureVariationKey($visitorCode, $featureKey, $timeOut);
+        return $variationKey != Variation::VARIATION_OFF;
     }
 
     public function trackConversion($visitorCode, int $goalID, $revenue = 0.0)
@@ -98,180 +191,255 @@ class KameleoonClientImpl implements KameleoonClient
         $this->flush($visitorCode);
     }
 
-    public function triggerExperiment($visitorCode, $experimentID, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
+    public function addData($visitorCode, ...$data)
     {
         $this->validateVisitorCode($visitorCode);
-        if ($this->blockingClient) {
-            return $this->performPostServerCall($this->getExperimentRegisterURL($visitorCode, $experimentID), $timeOut);
-        } else {
-            $this->loadConfiguration($timeOut);
-            $variationId = "reference";
-            if (array_key_exists($experimentID, $this->configurations->experiments)) {
-                $xpConf = $this->configurations->experiments[$experimentID];
-                $this->checkSiteCodeEnable($xpConf);
-                if ($this->checkTargeting($visitorCode, $experimentID, false))
-                {
-                    $savedVariation = $this->variationStorage->getSavedVariation($visitorCode, $xpConf);
-                    if ($savedVariation !== null) {
-                        return $savedVariation;
-                    } else {
-                        $noneVariation = true;
-                        $hashDouble = $this->obtainHashDouble($experimentID, $visitorCode, $xpConf->variationConfigurations);
-                        $total = 0.0;
-    
-                        foreach ($xpConf->variationConfigurations as $vid => $variationConfiguration) {
-                            $total += $variationConfiguration->deviation;
-                            if ($total >= $hashDouble) {
-                                $noneVariation = false;
-                                $variationId = $vid;
-                                break;
-                            }
-                        }
-                        $data = $this->getAndClearUnsentData($visitorCode);
-                        $this->writeRequestToFile($this->getExperimentRegisterURL($visitorCode, $experimentID, $variationId, $noneVariation), $data);
-    
-                        if ($noneVariation)
-                        {
-                            throw new NotActivated("Experiment not activated");
-                        }
-                        $this->variationStorage->saveVariation($visitorCode, $experimentID, $variationId);
-                        return $variationId;
-                    }
-                } else {
-                    throw new NotTargeted("Experiment not targeted");
-                }
+        $this->getUnsentData($visitorCode);
+        if (!isset($this->targetingData[$visitorCode]))
+        {
+            $this->targetingData[$visitorCode] = array();
+        }
+        foreach ($data as $datum) {
+            if ($datum instanceof UserAgent) {
+                $this->addUserAgent($visitorCode, $datum);
             } else {
-                throw new ExperimentConfigurationNotFound('Experiment configuration not found');
+                array_push($this->unsentData[$visitorCode], $datum);
+                array_push($this->targetingData[$visitorCode], new TargetingData($datum));
             }
         }
     }
 
-    public function activateFeature($visitorCode, $featureId, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
-	{
-        $this->checkFeatureIdIsString($featureId);
-        $this->validateVisitorCode($visitorCode);
-        if(isset($this->configurations->featureFlags[strval($featureId)]) == false) {
-            $this->loadConfiguration($timeOut);
-            $arrayFF = array_filter($this->configurations->featureFlags, function($v, $k) use ($featureId) { return $v->identificationKey == $featureId; }, ARRAY_FILTER_USE_BOTH);
-            $featureId = count($arrayFF) > 0 ? array_key_first($arrayFF) : $featureId;
+    public function flush($visitorCode = null)
+    {
+        if (!is_null($visitorCode)) {
+            $this->validateVisitorCode($visitorCode);
+            $data = $this->getAndClearUnsentData($visitorCode);
+            $this->writeRequestToFile(
+                $this->getDataTrackingURL($visitorCode),
+                $data,
+                $this->getUserAgent($visitorCode)
+            );
+        } else {
+            foreach ($this->getUnsentUsers() as $user) {
+                $this->flush($user);
+            }
         }
-        if ($this->blockingClient)
-        {
-            return $this->performPostServerCall($this->getExperimentRegisterURL($visitorCode, $featureId), $timeOut) == "null" ? false : true;
-        }
-        else
-        {
-            $this->loadConfiguration($timeOut);
-            $result = false;
-            if (array_key_exists($featureId, $this->configurations->featureFlags))
-            {
-                $ffConf = $this->configurations->featureFlags[strval($featureId)];
-                $this->checkSiteCodeEnable($ffConf);
-                if($this->checkTargeting($visitorCode, $featureId, true))
-                {
-                    if($ffConf->isScheduleActive(time())) {
-                        $hashDouble = $this->obtainHashDouble($featureId, $visitorCode, $ffConf->variationConfigurations);
-                        $variationId = 0;
-                        $total = 0.0;
-                        foreach ($ffConf->variationConfigurations as $vid => $variationConfiguration) {
-                            $total += $variationConfiguration->deviation;
-                            if ($total >= $hashDouble) {
-                                $result = $vid != 0;
-                                $variationId = $vid;
-                                break;
-                            }
-                        }
-                        $data = $this->getAndClearUnsentData($visitorCode);
-                        $this->writeRequestToFile($this->getExperimentRegisterURL($visitorCode, $featureId, $variationId, false), $data);
-                    } else {
-                        return $result;
-                    }
+    }
+
+    /**
+     * @deprecated deprecated since version 3.0.0. Please use `getVisitorCode`
+     */
+    public function obtainVisitorCode($topLevelDomain, $visitorCode = NULL)
+    {
+        error_log("Deprecated: `obtainVisitorCode` is deprecated. Please use `getVisitorCode`instead ");
+        return $this->getVisitorCode($topLevelDomain, $visitorCode);
+    }
+
+    // Here you must provide your own base domain, eg mydomain.com
+    public function getVisitorCode($topLevelDomain = null, $visitorCode = null)
+    {
+        if (isset($this->visitorCode)) {
+            return $this->visitorCode;
+        } else {
+            if (isset($_COOKIE["kameleoonVisitorCode"])) {
+                $value = $_COOKIE["kameleoonVisitorCode"];
+                if (strpos($value, "_js_") !== false) {
+                    $visitorCode = substr($value, 4);
                 } else {
-                    throw new NotTargeted("Feature not targeted");
+                    $visitorCode = $value;
                 }
             }
-            else
-            {
-                throw new FeatureConfigurationNotFound("Feature configuration not found");
+            if (is_null($visitorCode)) {
+                $alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+                $alphabetLength = strlen($alphabet);
+                $visitorCode = "";
+                for ($i = 0; $i < 16; $i++) {
+                    $randomNumber = floor((mt_rand() / mt_getrandmax()) * $alphabetLength);
+                    $visitorCode .= substr($alphabet, $randomNumber, 1);
+                }
             }
-            return $result;
+
+            $secure = false;
+            $httpOnly = false;
+            $samesite = "Lax";
+            $domain = null;
+
+            if (isset($this->cookieOptions["secure"])) {
+                $secure = $this->cookieOptions["secure"];
+            }
+            if (isset($this->cookieOptions["http_only"])) {
+                $httpOnly = $this->cookieOptions["http_only"];
+            }
+            if (isset($this->cookieOptions["samesite"])) {
+                $samesite = $this->cookieOptions["samesite"];
+            }
+            if (!is_null($topLevelDomain)) {
+                $domain = $topLevelDomain;
+            }
+            elseif (isset($this->cookieOptions["domain"])) {
+                $domain = $this->cookieOptions["domain"];
+            }
+            else {
+                throw new InvalidArgumentException('Domain is required');
+            }
+
+            if (version_compare(phpversion(), '7.3', '<')) {
+                setcookie("kameleoonVisitorCode", $visitorCode, time() + 32832000, "/", $domain, $secure, $httpOnly);
+            } else {
+                $cookie_options = array (
+                    "expires" => time() + 32832000,
+                    "path" => '/',
+                    "domain" => $domain,
+                    "secure" => $secure,
+                    "httponly" => $httpOnly,
+                    "samesite" => $samesite
+                );
+                setcookie("kameleoonVisitorCode", $visitorCode, $cookie_options);
+            }
+            $this->visitorCode = (string) $visitorCode;
+            return $this->validateVisitorCode($visitorCode);
         }
-	}
+    }
+
+    /**
+     * @deprecated deprecated since version 3.0.0. Please use `getVariationAssociatedData`
+     */
+    public function obtainVariationAssociatedData($variationId)
+    {
+        error_log("Deprecated: `obtainVariationAssociatedData` is deprecated. Please use `getVariationAssociatedData`instead ");
+        return $this->getVariationAssociatedData($variationId);
+    }
+
+    public function getVariationAssociatedData($variationId)
+    {
+        //check that configuration is loaded
+        $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS);
+
+        $result = null;
+        foreach ($this->configurations->experiments as $experiment) {
+            foreach ($experiment->variationConfigurations as $vid => $variationConfiguration) {
+                if ($vid == $variationId || strval($vid) == $variationId) {
+                    $result = $variationConfiguration->customJson;
+                }
+            }
+        }
+        if ($result == null)
+        {
+            throw new VariationConfigurationNotFound("Variation configuration not found");
+        }
+        return $result;
+    }
+
+    public function retrieveDataFromRemoteSource($key, $timeout = 2000) {
+        $response = $this->performGetServerCall($this->getAPIDataRequestURL($key), $timeout);
+        return json_decode($response);
+    }
+
+    public function getFeatureAllVariables(string $featureKey, string $variationKey): array {
+        $featureFlag = $this->findFeatureFlagV2($featureKey);
+        $variation = $featureFlag->getVariation($variationKey);
+        if (is_null($variation)) {
+            throw new VariationConfigurationNotFound("Variation key {$variationKey} not found");
+        }
+        return array_map(fn($var) => $var->getValue() , $variation->variables);
+    }
+
+    public function getExperimentList(): array {
+        return array_keys($this->configurations->experiments);
+    }
+
+    public function getExperimentListForVisitor(string $visitorCode, bool $onlyAllocated = true): array {
+        $this->validateVisitorCode($visitorCode);
+        $arrayIds = array();
+        foreach ($this->configurations->experiments as $experiment) {
+            if ($this->checkTargeting($visitorCode, $experiment->id, $experiment) &&
+                (!$onlyAllocated || !is_null($this->calculateVariationForExperiment($visitorCode, $experiment)))) {
+                    array_push($arrayIds, $experiment->id);
+            }
+        }
+        return $arrayIds;
+    }
+
+    public function getFeatureList(): array {
+        return array_keys($this->configurations->featureFlagsV2);
+    }
+
+    public function getActiveFeatureListForVisitor(string $visitorCode): array {
+        $this->validateVisitorCode($visitorCode);
+        $arrayKeys = array();
+        foreach ($this->configurations->featureFlagsV2 as $featureFlag) {
+            [$variationKey,] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            if ($variationKey != Variation::VARIATION_OFF) {
+                array_push($arrayKeys, $featureFlag->featureKey);
+            }
+        }
+        return $arrayKeys;
+    }
+
+    /*
+     * Helper Methods (Private Methods)
+     */
+
+    private function _getFeatureVariationKey(
+        string $visitorCode,
+        string $featureKey,
+        int $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS): array
+    {
+        $this->validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeOut);
+        $featureFlag = $this->findFeatureFlagV2($featureKey);
+        [$variationKey, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        if (!is_null($rule) && $rule->type == Rule::EXPERIMENTATION) {
+            $this->makeTrackingRequest($visitorCode, $variationKey, $rule);
+        }
+        return [$featureFlag, $variationKey];
+    }
+
 
     //load configuration if it was not loaded
-	private function loadConfiguration($timeOut, $timeStamp = 0)
+	private function loadConfiguration(int $timeOut)
     {
         $needUpdateByRefreshInterval = file_exists($this->configurationFilePath) && (time() >= filemtime($this->configurationFilePath) + $this->refreshInterval);
-        $needUpdateByRefreshEvent = $timeStamp != 0;
-        if (!$this->configurationLoaded || $needUpdateByRefreshInterval || $needUpdateByRefreshEvent)
+        if (!$this->configurationLoaded || $needUpdateByRefreshInterval)
         {
-            if (file_exists($this->configurationFilePath) && !$needUpdateByRefreshEvent) {
+            if (file_exists($this->configurationFilePath)) {
                 $fp = fopen($this->configurationFilePath, "r+");
                 if (!$needUpdateByRefreshInterval || !flock($fp, LOCK_EX)) {
                     try {
                         $obj = json_decode(file_get_contents($this->configurationFilePath, true));
-                        $this->configurations = Configurations::parse($obj);
+                        $this->configurations = Configuration::parse($obj);
                     }
                     catch (Exception $e) {
                         if (!flock($fp, LOCK_EX)) {
-                            $this->updateCampaignConfiguration($timeOut, $timeStamp);
+                            $this->updateCampaignConfiguration($timeOut);
                             flock($fp, LOCK_UN);
                         }
                     }
                 } else {
-                    $this->updateCampaignConfiguration($timeOut, $timeStamp);
+                    $this->updateCampaignConfiguration($timeOut);
                     flock($fp, LOCK_UN);
                 }
             } else {
-                $this->updateCampaignConfiguration($timeOut, $timeStamp);
+                $this->updateCampaignConfiguration($timeOut);
             }
-            $realTimeUpdate = isset($this->configurations->settings) ? $this->configurations->settings->getRealTimeUpdate() : false;
-            $this->manageConfigurationUpdate($realTimeUpdate);
         }
         $this->configurationLoaded = true;
     }
 
     // check targeting
-    private function checkTargeting($visitorCode, $containerID, $isFF)
+    private function checkTargeting($visitorCode, $containerID, $xpOrFFOrRule)
     {
 		$targeting = true;
 
 		// performing targeting
-		$xpConf = null;
-		if ($isFF)
+        $targetingSegment = $xpOrFFOrRule->getTargetingSegment();
+        if (null != $targetingSegment)
         {
-            if (isset($this->configurations->featureFlags[strval($containerID)]))
-            {
-                $xpConf = $this->configurations->featureFlags[strval($containerID)];
-            }
-        }
-		else
-        {
-            if (isset($this->configurations->experiments[strval($containerID)]))
-            {
-                $xpConf = $this->configurations->experiments[strval($containerID)];
-            }
-        }
-		if ($xpConf != null)
-		{
-			if(true == $xpConf->forceTargeting)
-			{
-				// assigning targeting to container
-				$targeting = true;
-			}
-            else
-            {
-                $targetingTree = null;
-
-                if (null != $xpConf->targetingSegment)
-                {
-                    $targetingTree = $xpConf->targetingSegment->getTargetingTree();
-                }
-                // obtaining targeting checking result and assigning targeting to container
-                $targeting = TargetingEngine::checkTargetingTree($targetingTree, function($type) use($visitorCode, $containerID) {
-                    return $this->getConditionData($type, $visitorCode, $containerID);
-                });
-            }
+            $targetingTree = $targetingSegment->getTargetingTree();
+            // obtaining targeting checking result and assigning targeting to container
+            $targeting = TargetingEngine::checkTargetingTree($targetingTree, function($type) use($visitorCode, $containerID) {
+               return $this->getConditionData($type, $visitorCode, $containerID);
+            });
         }
 
         return $targeting;
@@ -289,7 +457,19 @@ class KameleoonClientImpl implements KameleoonClient
         }
 	}
 
-    private function obtainHashDouble($containerID, $visitorCode, $variationConfigurations)
+    private function obtainHashDouble(string $visitorCode, int $containerID, array $variationConfigurations) {
+        return $this->_obtainHashDouble($visitorCode, $containerID, $variationConfigurations);
+    }
+
+    private function obtainHashDoubleV2(string $visitorCode, int $containerID, string $suffix = '') {
+        return $this->_obtainHashDouble($visitorCode, $containerID, array(), $suffix);
+    }
+
+    private function _obtainHashDouble(
+        string $visitorCode,
+        int $containerID,
+        array $variationConfigurations,
+        string $suffix = '')
     {
         $respoolTimes = array();
         foreach ($variationConfigurations as $v) {
@@ -297,7 +477,7 @@ class KameleoonClientImpl implements KameleoonClient
                 array_push($respoolTimes, $v->respoolTime);
             }
         }
-        return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . join("", $respoolTimes)), 0, 8), 16) / pow(2, 32));
+        return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . $suffix . join("", $respoolTimes)), 0, 8), 16) / pow(2, 32));
     }
 
     private function getCommonSSXParameters($visitorCode)
@@ -364,34 +544,36 @@ class KameleoonClientImpl implements KameleoonClient
         return $result;
     }
 
-    private function updateCampaignConfiguration($timeOut, $timeStamp)
+    private function updateCampaignConfiguration($timeOut)
     {
         try
         {
             $siteCodeURL = "/mobile?siteCode=" . $this->siteCode;
             $environmentURL = $this->environment != null ? "&environment=" . $this->environment : "";
-            $timeStampURL = $timeStamp != 0 ? "&ts=" . strval($timeStamp) : "";
-            $configurationRequest = curl_init(self::API_CONFIGURATION_URL . $siteCodeURL . $environmentURL . $timeStampURL);
+            $configurationRequest = curl_init(self::API_CONFIGURATION_URL . $siteCodeURL . $environmentURL);
             curl_setopt($configurationRequest, CURLOPT_TIMEOUT_MS, $timeOut);
-            curl_setopt($configurationRequest, CURLOPT_CONNECTTIMEOUT_MS, $timeOut); 
+            curl_setopt($configurationRequest, CURLOPT_CONNECTTIMEOUT_MS, $timeOut);
             curl_setopt($configurationRequest, CURLOPT_RETURNTRANSFER, 1);
             $configurationOutput = curl_exec($configurationRequest);
             curl_close($configurationRequest);
             $configuration = json_decode($configurationOutput);
 
-            if (isset($configuration->experiments) && isset($configuration->featureFlags))
+            if (isset($configuration->experiments) &&
+                isset($configuration->featureFlags) &&
+                isset($configuration->featureFlagConfigurations))
             {
                 file_put_contents($this->configurationFilePath, $configurationOutput);
-                $this->configurations = Configurations::parse($configuration);
-                clearstatcache();
+                $this->configurations = Configuration::parse($configuration);
             }
             else
             {
                 $configuration = json_decode(file_get_contents($this->configurationFilePath, true));
-                $this->configurations = Configurations::parse($configuration);
+                $this->configurations = Configuration::parse($configuration);
                 $this->updateConfigurationFileModificationTime();
-            }        
+            }
         } catch (Exception $e) {
+            echo "Update configuration file failed: " . $e->getMessage();
+        } finally {
             $this->updateConfigurationFileModificationTime();
         }
     }
@@ -402,19 +584,6 @@ class KameleoonClientImpl implements KameleoonClient
             clearstatcache();
         }
     }
-
-    private function manageConfigurationUpdate($realTimeUpdate) {
-        if($this->realTimeManager === null && $realTimeUpdate) {
-            $this->realTimeManager = new RealTimeConfigurationService();
-            $this->realTimeManager->subscribe($this->getRealTimeConfigurationURL($this->siteCode), function ($data) {
-                $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS, $data->ts);
-                call_user_func($this->onUpdateConfigurationHandler);
-            });
-        } else if ($this->realTimeManager !== null && !$realTimeUpdate) {
-            $this->realTimeManager->unsubscribe();
-            $this->realTimeManager = null;
-        }
-     }
 
     private function getUnsentUsers()
     {
@@ -443,51 +612,7 @@ class KameleoonClientImpl implements KameleoonClient
         unset($this->unsentData[$visitorCode]);
     }
 
-    public function addData($visitorCode, ...$data)
-    {
-        $this->validateVisitorCode($visitorCode);
-        $this->getUnsentData($visitorCode);
-        if (!isset($this->targetingData[$visitorCode]))
-        {
-            $this->targetingData[$visitorCode] = array();
-        }
-        foreach ($data as $datum) {
-            array_push($this->unsentData[$visitorCode], $datum);
-            array_push($this->targetingData[$visitorCode], new TargetingData($datum));
-        }
-    }
-
-    public function flush($visitorCode = null)
-    {
-        if (!is_null($visitorCode)) {
-            $this->validateVisitorCode($visitorCode);
-            $data = $this->getAndClearUnsentData($visitorCode);
-            $this->writeRequestToFile($this->getDataTrackingURL($visitorCode), $data);
-        } else {
-            foreach ($this->getUnsentUsers() as $user) {
-                $this->flush($user);
-            }
-        }
-    }
-
-    public function performPostServerCall($url, $timeOut, $data = null)
-    {
-        $curl = curl_init($url);
-        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, 'POST');
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_TIMEOUT_MS, $timeOut);
-        if (!is_null($data)) {
-            curl_setopt($curl, CURLOPT_POSTFIELDS, $data);
-        }
-        $response = curl_exec($curl);
-        if (curl_error($curl)) {
-            throw new Exception('API-SSX call returned status code 404');
-        }
-        curl_close($curl);
-        return $response;
-    }
-
-    public function performGetServerCall($url, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
+    private function performGetServerCall($url, $timeOut = self::DEFAULT_TIMEOUT_MILLISECONDS)
     {
         $curl = curl_init($url);
         curl_setopt($curl, CURLOPT_CUSTOMREQUEST, 'GET');
@@ -506,9 +631,14 @@ class KameleoonClientImpl implements KameleoonClient
         return "requests-" . floor(time() / 60) . ".sh";
     }
 
-    private function writeRequestToFile($url, $data)
+    private function writeRequestToFile($url, $data, $userAgent)
     {
-        $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST -H \"Kameleoon-Client: sdk/php/" . VERSION_SDK . "\" \"" . $url . "\"";
+        $headerUserAgent = " ";
+        if (!is_null($userAgent)) {
+            $headerUserAgent = " -H \"User-Agent: {$userAgent->getValue()}\" ";
+        }
+        $version_sdk = VERSION_SDK;
+        $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST -H \"Kameleoon-Client: sdk/php/$version_sdk\"{$headerUserAgent}\"$url\"";
         if ($data != null) {
             $requestText .= " -d '" . $data . "'";
         }
@@ -516,147 +646,10 @@ class KameleoonClientImpl implements KameleoonClient
         file_put_contents($this->kameleoonWorkDir . $this->getRequestsFileName(), $requestText, FILE_APPEND | LOCK_EX);
     }
 
-    // Here you must provide your own base domain, eg mydomain.com
-    public function obtainVisitorCode($topLevelDomain = null, $visitorCode = null)
-    {
-        if (isset($this->visitorCode)) {
-            return $this->visitorCode;
-        } else {
-            if (isset($_COOKIE["kameleoonVisitorCode"])) {
-                $value = $_COOKIE["kameleoonVisitorCode"];
-                if (strpos($value, "_js_") !== false) {
-                    $visitorCode = substr($value, 4);
-                } else {
-                    $visitorCode = $value;
-                }
-            }
-            if (is_null($visitorCode)) {
-                $alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-                $alphabetLength = strlen($alphabet);
-                $visitorCode = "";
-                for ($i = 0; $i < 16; $i++) {
-                    $randomNumber = floor((mt_rand() / mt_getrandmax()) * $alphabetLength);
-                    $visitorCode .= substr($alphabet, $randomNumber, 1);
-                }
-            }
-
-            $secure = false;
-            $httpOnly = false;
-            $samesite = "Lax";
-            $domain = null;
-
-            if (isset($this->cookieOptions["secure"])) {
-                $secure = $this->cookieOptions["secure"];
-            }
-            if (isset($this->cookieOptions["http_only"])) {
-                $httpOnly = $this->cookieOptions["http_only"];
-            }
-            if (isset($this->cookieOptions["samesite"])) {
-                $samesite = $this->cookieOptions["samesite"];
-            }
-            if (!is_null($topLevelDomain)) {
-                $domain = $topLevelDomain;
-            }
-            elseif (isset($this->cookieOptions["domain"])) {
-                $domain = $this->cookieOptions["domain"];
-            }
-            else {
-                throw new InvalidArgumentException('Domain is required');
-            }
-
-            if (version_compare(phpversion(), '7.3', '<')) {
-                setcookie("kameleoonVisitorCode", $visitorCode, time() + 32832000, "/", $domain, $secure, $httpOnly);
-            } else {
-                $cookie_options = array (
-                    "expires" => time() + 32832000,
-                    "path" => '/',
-                    "domain" => $domain,
-                    "secure" => $secure,
-                    "httponly" => $httpOnly,
-                    "samesite" => $samesite
-                );
-                setcookie("kameleoonVisitorCode", $visitorCode, $cookie_options);
-            }
-            $this->visitorCode = (string) $visitorCode;
-            return $this->validateVisitorCode($visitorCode);
-        }
-    }
-
-    public function obtainVariationAssociatedData($variationId)
-    {
-        //check that configuration is loaded
-        $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS);
-
-        $result = null;
-        foreach ($this->configurations->experiments as $experiment) {
-            foreach ($experiment->variationConfigurations as $vid => $variationConfiguration) {
-                if ($vid == $variationId || strval($vid) == $variationId) {
-                    $result = $variationConfiguration->customJson;
-                }
-            }
-        }
-        if ($result == null)
-        {
-            throw new VariationConfigurationNotFound("Variation configuration not found");
-        }
-        return $result;
-    }
-
-    public function obtainFeatureVariable($featureIdOrName, $variableName)
-    {
-        $this->checkFeatureIdIsString($featureIdOrName);
-        
-        $BOOLEAN_TYPE = "Boolean"; $STRING_TYPE = "String"; $NUMBER_TYPE = "Number"; $JSON_TYPE = "JSON";
-
-        //check that configuration is loaded
-        $this->loadConfiguration(self::DEFAULT_TIMEOUT_MILLISECONDS);
-
-        $result = null;
-        foreach ($this->configurations->featureFlags as $id => $ff) {
-            foreach ($ff->variationConfigurations as $vid => $variationConfiguration) {
-                if ($featureIdOrName == $ff->identificationKey || $id == $featureIdOrName || strval($id) == $featureIdOrName) {
-                    try {
-                        if ($vid != 0)
-                        {
-                            $type = $variationConfiguration->customJson->{$variableName}->type;
-                            $result = $variationConfiguration->customJson->{$variableName}->value;
-                            switch ($type) {
-                                case $BOOLEAN_TYPE:
-                                    $result = filter_var($result, FILTER_VALIDATE_BOOLEAN);
-                                    break;
-                                case $NUMBER_TYPE:
-                                    $result = filter_var($result, FILTER_VALIDATE_INT);
-                                    break;
-                                case $JSON_TYPE:
-                                    $result = json_decode($result);
-                                    break;
-                            }
-                        }
-                    }
-                    catch (Exception $e){}
-                }
-            }
-        }
-        if ($result === null)
-        {
-            throw new FeatureConfigurationNotFound("Feature configuration not found");
-        }
-        return $result;
-    }
-
-    public function retrieveDataFromRemoteSource($key, $timeout = 2000) {
-        $response = $this->performGetServerCall($this->getAPIDataRequestURL($key), $timeout);
-        return json_decode($response);
-    }
-
-    public function onUpdateConfiguration(callable $onUpdate) {
-        $this->onUpdateConfigurationHandler = $onUpdate;
-    }
-
     private function validateVisitorCode($visitorCode) {
         if (isset($visitorCode) == false || strlen($visitorCode) == 0) {
             throw new VisitorCodeNotValid("Visitor code is empty");
-        } else if (strlen($visitorCode) > self::VISITOR_CODE_MAX_LENGTH) { 
+        } else if (strlen($visitorCode) > self::VISITOR_CODE_MAX_LENGTH) {
             throw new VisitorCodeNotValid("Visitor max length is " . self::VISITOR_CODE_MAX_LENGTH . " characters");
         } else {
             return $visitorCode;
@@ -671,7 +664,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function checkFeatureIdIsString($featureId) {
         if (gettype($featureId) != "string") {
-            error_log(print_r("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `int` type will be removed in next releases", TRUE)); 
+            error_log("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `int` type will be removed in next releases");
         }
     }
 
@@ -683,74 +676,87 @@ class KameleoonClientImpl implements KameleoonClient
         $this->emptyUnsentData($visitorCode);
         return $data;
     }
-}
 
-class VariationConfiguration
-{
-    public $deviation;
-    public $respoolTime;
-    public $customJson;
+    private function addUserAgent(string $visitorCode, UserAgent $userAgent) {
+        $this->userAgentData[$visitorCode] = $userAgent;
+    }
 
-    public function __construct($deviation, $respoolTime, $customJson)
-    {
-        $this->deviation = $deviation;
-        $this->respoolTime = $respoolTime;
-        try {
-            $this->customJson = json_decode($customJson);
-        } catch (Exception $e) {
-            $this->customJson = null;
+    private function getUserAgent(string $visitorCode): ?UserAgent {
+        if (isset($this->userAgentData[$visitorCode])) {
+            return $this->userAgentData[$visitorCode];
+        } else {
+            return NULL;
         }
     }
-}
 
-class Experiment
-{
-    public $id;
-    public $variationConfigurations;
-    public $forceTargeting;
-    public $targetingSegment;
-    public $isSiteCodeEnabled;
-
-    public function __construct($experiment)
+    private function findFeatureFlagV2(string $featureKey): FeatureFlagV2
     {
-        $this->id = $experiment->id;
-        $this->variationConfigurations = array();
-        $this->forceTargeting = isset($experiment->forceTargeting) ? $experiment->forceTargeting : false;
-        $this->targetingSegment = null;
-
-        if ($experiment->segment != null)
-        {
-            $this->targetingSegment = new TargetingSegment();
-            $targetingTreeBuilder = new TargetingTreeBuilder();
-            $targetingTree = $targetingTreeBuilder->createTargetingTree($experiment->segment->conditionsData);
-            $this->targetingSegment->setTargetingTree($targetingTree);
+        if (isset($this->configurations->featureFlagsV2[$featureKey])) {
+            return $this->configurations->featureFlagsV2[$featureKey];
+        } else {
+            throw new FeatureConfigurationNotFound("Feature {$featureKey} not found");
         }
+    }
 
-        $sortedDeviations = $experiment->deviations;
-        usort($sortedDeviations, function (object $first, object $second) { return intval($first->variationId) <=> intval($second->variationId); });
-        foreach ($sortedDeviations as $deviation) {
-            $variationId = $deviation->variationId == "origin" ? 0 : intval($deviation->variationId);
-            $deviation = floatval($deviation->value);
-            $respoolTime = null;
-            if (isset($experiment->respoolTime)) {
-                foreach ($experiment->respoolTime as $rt) {
-                    if ($rt->variationId == $variationId || ($variationId == 0 && $rt->variationId == "origin")) {
-                        $respoolTime = floatval($rt->value);
+    private function calculateVariationKeyForFeature(string $visitorCode, FeatureFlagV2 $featureFlag): array {
+        // no rules -> return defaultVariationKey
+        if (count($featureFlag->rules) > 0) {
+            // uses for rule exposition
+            $hashRule = $this->obtainHashDoubleV2($visitorCode, $featureFlag->id);
+            // uses for variation's expositions
+            $hashVariation = $this->obtainHashDoubleV2($visitorCode, $featureFlag->id, 'variation');
+            foreach ($featureFlag->rules as $rule) {
+                // check if visitor is targeted for rule, else next rule
+                if ($this->checkTargeting($visitorCode, $featureFlag->id, $rule)) {
+                    // check main expostion for rule with hashRule
+                    if ($hashRule < $rule->exposition) {
+                        // get variation key with new hashVariation
+                        $variationKey = $rule->getVariationKey($hashVariation);
+                        // variationKey can be nil for experiment rules only, for targeted rule will be always exist
+                        if (!is_null($variationKey)) {
+                            return [$variationKey, $rule];
+                        }
+                    } elseif ($rule->type == Rule::TARGETED_DELIVERY) {
+                        // if visitor is targeted but not bucketed for targeted rule then break cycle -> return default
                         break;
                     }
                 }
             }
-            $customJson = '{}';
-            foreach ($experiment->variations as $variation) {
-                if ($variation->id == $variationId || ($variationId == 0 && $variation->id == "origin")) {
-                    $customJson = $variation->customJson;
-                    break;
-                }
-            }
-            $this->variationConfigurations[$variationId] = new VariationConfiguration($deviation, $respoolTime, $customJson);
         }
+        return [$featureFlag->defaultVariationKey, null];
+    }
 
-        $this->isSiteCodeEnabled = $experiment->siteEnabled;
+    private function makeTrackingRequest(
+        string $visitorCode,
+        string $variationKey,
+        Rule $rule)
+    {
+        if (isset($rule->experimentId)) {
+            $data = $this->getAndClearUnsentData($visitorCode);
+            $this->writeRequestToFile(
+                $this->getExperimentRegisterURL(
+                    $visitorCode,
+                    $rule->experimentId,
+                    $rule->getVariationIdByKey($variationKey)
+                ),
+                $data,
+                $this->getUserAgent($visitorCode)
+            );
+        } else {
+            echo "An attempt to send a request with null experimentId was blocked";
+        }
+    }
+
+    private function calculateVariationForExperiment(string $visitorCode, Experiment $xpConf): ?int {
+        $hashDouble = $this->obtainHashDouble($visitorCode, $xpConf->id, $xpConf->variationConfigurations);
+        $total = 0.0;
+        foreach ($xpConf->variationConfigurations as $vid => $variationConfiguration) {
+            $total += $variationConfiguration->deviation;
+            if ($total >= $hashDouble) {
+                return $vid;
+            }
+        }
+        return null;
     }
 }
 
@@ -759,158 +765,14 @@ class Schedule
     public $dateStart;
     public $dateEnd;
 
-    public function __construct($schedule) {
+    public function __construct($schedule)
+    {
         $this->dateStart = $this->fetchDate($schedule, "dateStart");
         $this->dateEnd = $this->fetchDate($schedule, "dateEnd");
     }
-    
+
     private function fetchDate($schedule, $key) {
         return isset($schedule->$key) ? strtotime($schedule->$key) : null;
-    }
-}
-
-class FeatureFlag
-{
-    private const STATUS_ACTIVE = "ACTIVE";
-    private const FEATURE_STATUS_DEACTIVATED = "DEACTIVATED";
-    public $variationConfigurations;
-    public $forceTargeting;
-    public $targetingSegment;
-    public $identificationKey;
-    public $isSiteCodeEnabled;
-    private $featureStatus;
-    private $status;
-    private $schedules;
-
-    public function __construct($ff)
-    {     
-        $this->variationConfigurations = array();
-        $this->identificationKey = isset($ff->identificationKey) ? $ff->identificationKey : null;
-        $this->forceTargeting = isset($ff->forceTargeting) ? $ff->forceTargeting : false;
-
-        $this->targetingSegment = null;
-
-        if ($ff->segment != null)
-        {
-            $this->targetingSegment = new TargetingSegment();
-            $targetingTreeBuilder = new TargetingTreeBuilder();
-            $targetingTree = $targetingTreeBuilder->createTargetingTree($ff->segment->conditionsData);
-            $this->targetingSegment->setTargetingTree($targetingTree);
-        }
-        
-        $deviations = array();
-        array_push($deviations, 
-            ["variationId" => 0, "value" => floatval(1 - $ff->expositionRate)],
-            ["variationId" => $ff->variations[0]->id, "value" => floatval($ff->expositionRate)],
-        );
-
-        foreach ($deviations as $deviation) {
-            $variationId = $deviation["variationId"] == "origin" ? 0 : intval($deviation["variationId"]);
-            $deviationValue = floatval($deviation["value"]);
-            $respoolTime = null;
-            if (isset($ff->respoolTime)) {
-                foreach ($ff->respoolTime as $rt) {
-                    if ($rt->variationId == $variationId || ($variationId == 0 && $rt->variationId == "origin")) {
-                        $respoolTime = floatval($rt->value);
-                    }
-                }
-            }
-            $customJson = '{}';
-            foreach ($ff->variations as $variation) {
-                if ($variation->id == $variationId || ($variationId == 0 && $variation->id == "origin")) {
-                    $customJson = $variation->customJson;
-                }
-            }
-            $this->variationConfigurations[$variationId] = new VariationConfiguration($deviationValue, $respoolTime, $customJson);
-        }
-
-        // Temporary fix for ff
-        foreach ($ff->variations as $variation) {
-            if (!isset($this->variationConfigurations[$variation->id]))
-            {
-                $deviation = 1 - $this->variationConfigurations["0"]->deviation;
-                $respoolTime = null;
-                if (isset($ff->respoolTime)) {
-                    if (isset($ff->respoolTime[$variation->id])) {
-                        $respoolTime = floatval($ff->respoolTime[$variation->id]);
-                    }
-                }
-                $customJson = $variation->customJson;
-                $this->variationConfigurations[$variation->id] = new VariationConfiguration($deviation, $respoolTime, $customJson);
-            }
-        }
-
-        $this->status = $ff->status;
-        $this->featureStatus = $ff->featureStatus;
-
-        $this->schedules = array();
-        if(isset($ff->schedules)) {
-            foreach($ff->schedules as $schedule) {
-                array_push($this->schedules, new Schedule($schedule));
-            }
-        }
-
-        $this->isSiteCodeEnabled = $ff->siteEnabled;
-    }
-
-    public function isScheduleActive($currentTimestamp) {
-        // if no schedules then need to fetch current status
-        $currentStatus = $this->status == $this::STATUS_ACTIVE;
-        if($this->featureStatus == $this::FEATURE_STATUS_DEACTIVATED || empty($this->schedules)) {
-            return $currentStatus;
-        }
-        // need to find if date is in any period -> active or not -> not activate
-        foreach($this->schedules as $schedule) {
-            if (($schedule->dateStart == null || $schedule->dateStart < $currentTimestamp) &&
-                ($schedule->dateEnd == null || $schedule->dateEnd > $currentTimestamp) ) {
-                    return true;
-            }
-        }
-        return false;
-    }
-}
-
-class Configurations
-{
-    public static function parse($json)
-    {
-        $configurations = (object) array();
-        $configurations->experiments = array();
-        $configurations->featureFlags = array();
-
-        try {
-            foreach ($json->experiments as $experiment) {
-                $configurations->experiments[$experiment->id] = new Experiment($experiment);
-            }
-        } catch (Exception $e) {
-        }
-        try {
-            foreach ($json->featureFlags as $ff) {
-                $configurations->featureFlags[$ff->id] = new FeatureFlag($ff);
-            }
-        } catch (Exception $e) {
-        }
-
-        if (isset($json->configuration)) {
-            $configurations->settings = new Settings($json->configuration);
-        }
-
-        return $configurations;
-    }
-}
-
-class Settings
-{
-    private $realTimeUpdate = false;
-
-    public function __construct($settings) {
-        if ($settings != null) {
-            $this->realTimeUpdate = $settings->realTimeUpdate;
-        }
-    }
-
-    public function getRealTimeUpdate() {
-        return $this->realTimeUpdate;
     }
 }
 
