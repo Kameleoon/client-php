@@ -15,4 +15,3 @@ class VariationByExposition
         $this->exposition = $variationByExposition->exposition;
     }
 }
-?>

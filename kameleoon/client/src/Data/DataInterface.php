@@ -3,5 +3,5 @@ namespace Kameleoon\Data;
 
 interface DataInterface
 {
-    public function obtainFullPostTextLine();
+    public function obtainFullPostTextLine(): string;
 }

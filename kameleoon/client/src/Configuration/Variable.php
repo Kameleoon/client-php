@@ -17,7 +17,7 @@ class Variable
         $this->value = $variable->value;
     }
 
-    public function getValue(): object|bool|string|float|int|array
+    public function getValue()
     {
         if ($this->type === self::JSON_TYPE) {
             return json_decode($this->value);
@@ -26,4 +26,3 @@ class Variable
         }
     }
 }
-?>

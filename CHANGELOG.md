@@ -1,6 +1,25 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 3.1.0 - 2023-04-17
+* An option for **default_timeout** has been added to allow overriding the default timeout parameter specified in the configuration file. Additionally, the default timeout has been reduced to **5 seconds**.
+* An optional timeout parameter has been added for methods. If no timeout is specified, the SDK will use the default timeout value:
+    - [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerExperiment)
+    - [`isFeatureActive`](https://developers.kameleoon.com/php-sdk.html#isFeatureActive)
+    - [`getVariationAssociatedData`](https://developers.kameleoon.com/php-sdk.html#getVariationAssociatedData)
+    - [`getRemoteData`](https://developers.kameleoon.com/php-sdk.html#getRemoteData)
+    - [`getFeatureVariationKey`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariationKey)
+    - [`getFeatureVariable`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariable)
+    - [`getFeatureAllVariables`](https://developers.kameleoon.com/php-sdk.html#getFeatureAllVariables)
+    - [`getExperimentList`](https://developers.kameleoon.com/php-sdk.html#getExperimentList)
+    - [`getExperimentListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getExperimentListForVisitor)
+    - [`getFeatureList`](https://developers.kameleoon.com/php-sdk.html#getFeatureList)
+    - [`getActiveFeatureListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getActiveFeatureListForVisitor)
+* Added a new method:
+    - [`getEngineTrackingCode`](https://developers.kameleoon.com/php-sdk.html#getenginetrackingcode) which can be used to simplify utilization of hybrid mode
+* Renaming of methods:
+    - `retrieveDataFromRemoteSource` -> [`getRemoteData`](https://developers.kameleoon.com/php-sdk.html#getRemoteData)
+
 ## 3.0.0 - 2023-02-02
 * Added support of new feature flag rules:
     - [`getFeatureVariationKey`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariationKey)

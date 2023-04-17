@@ -1,5 +1,9 @@
 <?php
+
 namespace Kameleoon;
+
+use Kameleoon\Hybrid\HybridManagerImpl;
+use Kameleoon\Storage\VariationStorageImpl;
 
 class KameleoonClientFactory
 {
@@ -8,7 +12,12 @@ class KameleoonClientFactory
     public static function create($siteCode, $configurationFilePath = "/etc/kameleoon/client-php.json")
     {
         if (!in_array($siteCode, self::getInstance()->clients)) {
-            self::getInstance()->clients[$siteCode] = new KameleoonClientImpl($siteCode, $configurationFilePath);
+            self::getInstance()->clients[$siteCode] = new KameleoonClientImpl(
+                $siteCode,
+                $configurationFilePath,
+                new VariationStorageImpl(),
+                new HybridManagerImpl()
+            );
         }
         return self::getInstance()->clients[$siteCode];
     }
@@ -18,14 +27,14 @@ class KameleoonClientFactory
         unset(self::getInstance()->clients[$siteCode]);
     }
 
-    private static $_instance = null;
+    private static $instance = null;
 
     private static function getInstance()
     {
-        if (is_null(self::$_instance)) {
-            self::$_instance = new KameleoonClientFactory();
+        if (is_null(self::$instance)) {
+            self::$instance = new KameleoonClientFactory();
         }
 
-        return self::$_instance;
+        return self::$instance;
     }
 }

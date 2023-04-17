@@ -10,15 +10,20 @@ class Conversion implements DataInterface
     private $negative;
     private $nonce;
 
-    public function __construct(int $goalId, float $revenue = 0, bool $negative = false) {
+    public function __construct(int $goalId, float $revenue = 0, bool $negative = false)
+    {
         $this->goalId = $goalId;
         $this->revenue = $revenue;
         $this->negative = $negative ? "true" : "false";
         $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
-    public function obtainFullPostTextLine ()
+    public function obtainFullPostTextLine(): string
     {
-        return "eventType=conversion&goalId=" . $this->goalId . "&revenue=" . $this->revenue . "&negative=" . $this->negative . "&nonce=" . $this->nonce;
+        return
+            "eventType=conversion&goalId=" . $this->goalId .
+            "&revenue=" . $this->revenue .
+            "&negative=" . $this->negative .
+            "&nonce=" . $this->nonce;
     }
 }

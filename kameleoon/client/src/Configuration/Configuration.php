@@ -11,23 +11,25 @@ class Configuration
         $configurations = (object) array();
 
         $configurations->experiments = self::createFromJSON($json->experiments, "id", Experiment::class);
-        $configurations->featureFlags = self::createFromJSON($json->featureFlags, "id", FeatureFlag::class);
-        $configurations->featureFlagsV2 = self::createFromJSON($json->featureFlagConfigurations, "featureKey", FeatureFlagV2::class);
+        $configurations->featureFlags = self::createFromJSON(
+            $json->featureFlagConfigurations,
+            "featureKey",
+            FeatureFlag::class
+        );
 
         return $configurations;
     }
 
-    private static function createFromJSON($json, $key, $class) {
+    private static function createFromJSON($json, $key, $class)
+    {
         $arrayObj = array();
         try {
             foreach ($json as $obj) {
                 $arrayObj[$obj->$key] = new $class($obj);
             }
         } catch (Exception $e) {
-            return NULL;
+            return null;
         }
         return $arrayObj;
     }
 }
-
-?>

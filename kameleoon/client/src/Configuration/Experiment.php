@@ -17,7 +17,9 @@ class Experiment extends TargetingObject
         $this->targetingSegment = null;
 
         $sortedDeviations = $experiment->deviations;
-        usort($sortedDeviations, function (object $first, object $second) { return intval($first->variationId) <=> intval($second->variationId); });
+        usort($sortedDeviations, function (object $first, object $second) {
+            return intval($first->variationId) <=> intval($second->variationId);
+        });
         foreach ($sortedDeviations as $deviation) {
             $variationId = $deviation->variationId == "origin" ? 0 : intval($deviation->variationId);
             $deviation = floatval($deviation->value);
@@ -37,11 +39,10 @@ class Experiment extends TargetingObject
                     break;
                 }
             }
-            $this->variationConfigurations[$variationId] = new VariationConfiguration($deviation, $respoolTime, $customJson);
+            $this->variationConfigurations[$variationId] =
+                new VariationConfiguration($deviation, $respoolTime, $customJson);
         }
 
         $this->isSiteCodeEnabled = $experiment->siteEnabled;
     }
 }
-
-?>

@@ -14,13 +14,15 @@ class Variation
         $this->key = $variation->key;
         $this->variables = array_reduce(
             $variation->variables,
-            function($res, $var) { $res[$var->key] = new Variable($var); return $res;},
+            function ($res, $var) {
+                $res[$var->key] = new Variable($var);
+                return $res; },
             []
         );
     }
 
-    public function getVariable(?string $key) {
+    public function getVariable(?string $key)
+    {
         return $this->variables[$key] ?? null;
     }
 }
-?>

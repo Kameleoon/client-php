@@ -19,8 +19,12 @@ class PageView implements DataInterface
         $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
-    public function obtainFullPostTextLine ()
+    public function obtainFullPostTextLine(): string
     {
-        return "eventType=page&href=" . URLEncoding::encodeURIComponent($this->url) . "&title=" . URLEncoding::encodeURIComponent($this->title) . ($this->referrers == null ? "" : "&referrersIndices=[" . implode(",", $this->referrers) . "]") . "&nonce=" . $this->nonce;
+        return
+            "eventType=page&href=" . URLEncoding::encodeURIComponent($this->url) .
+            "&title=" . URLEncoding::encodeURIComponent($this->title) .
+            ($this->referrers == null ? "" : "&referrersIndices=[" . implode(",", $this->referrers) . "]") .
+            "&nonce=" . $this->nonce;
     }
 }

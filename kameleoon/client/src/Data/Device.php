@@ -19,7 +19,7 @@ class Device implements DataInterface
         $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
-    public function obtainFullPostTextLine ()
+    public function obtainFullPostTextLine(): string
     {
         return "eventType=staticData&deviceType=" . $this->type . "&nonce=" . $this->nonce;
     }
