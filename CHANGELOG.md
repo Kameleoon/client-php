@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 
 ## 3.1.0 - 2023-04-17
-* An option for **default_timeout** has been added to allow overriding the default timeout parameter specified in the configuration file. Additionally, the default timeout has been reduced to **5 seconds**.
+* The option **default_timeout** has been added to allow overriding the default timeout parameter specified in the configuration file. Additionally, the default timeout has been reduced to **5 seconds**.
 * An optional timeout parameter has been added for methods. If no timeout is specified, the SDK will use the default timeout value:
     - [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerExperiment)
     - [`isFeatureActive`](https://developers.kameleoon.com/php-sdk.html#isFeatureActive)
