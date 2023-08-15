@@ -41,6 +41,7 @@ All notable changes to this project will be documented in this file.
     - [`getEngineTrackingCode`](https://developers.kameleoon.com/php-sdk.html#getenginetrackingcode) which can be used to simplify utilization of hybrid mode
 * Renaming of methods:
     - `retrieveDataFromRemoteSource` -> [`getRemoteData`](https://developers.kameleoon.com/php-sdk.html#getRemoteData)
+* Added possibility for [`CustomData`](https://developers.kameleoon.com/python-sdk.html#customdata) to use variable argument list of values
 
 ## 3.0.0 - 2023-02-02
 * Added support of new feature flag rules:
