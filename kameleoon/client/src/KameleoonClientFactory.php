@@ -4,6 +4,7 @@ namespace Kameleoon;
 
 use Kameleoon\Hybrid\HybridManagerImpl;
 use Kameleoon\Storage\VariationStorageImpl;
+use Kameleoon\Network\NetworkManagerFactoryImpl;
 
 class KameleoonClientFactory
 {
@@ -16,7 +17,8 @@ class KameleoonClientFactory
                 $siteCode,
                 $configurationFilePath,
                 new VariationStorageImpl(),
-                new HybridManagerImpl()
+                new HybridManagerImpl(),
+                new NetworkManagerFactoryImpl()
             );
         }
         return self::getInstance()->clients[$siteCode];

@@ -1,6 +1,28 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 3.2.0 - 2023-08-15
+### Features
+* [`Browser`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#browser) data class now accepts a version number for the visitor's browser
+* Added new conditions for targeting:
+    - Visitor Code
+    - SDK Language
+    - [Page Title & Page Url](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#pageview)
+    - [`Browser`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#browser)
+    - [`Device`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#device)
+    - [`Conversion`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#trackconversion)
+* A new exception, ConfigurationNotLoaded, is thrown when the configuration has not been initialized. A missing configuration prevents the SDK from functioning properly. The ConfigurationNotLoaded exception can be thrown by the following methods:
+    - [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerExperiment)
+    - [`isFeatureActive`](https://developers.kameleoon.com/php-sdk.html#isFeatureActive)
+    - [`getVariationAssociatedData`](https://developers.kameleoon.com/php-sdk.html#getVariationAssociatedData)
+    - [`getFeatureVariationKey`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariationKey)
+    - [`getFeatureVariable`](https://developers.kameleoon.com/php-sdk.html#getFeatureVariable)
+    - [`getFeatureAllVariables`](https://developers.kameleoon.com/php-sdk.html#getFeatureAllVariables)
+    - [`getExperimentList`](https://developers.kameleoon.com/php-sdk.html#getExperimentList)
+    - [`getExperimentListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getExperimentListForVisitor)
+    - [`getFeatureList`](https://developers.kameleoon.com/php-sdk.html#getFeatureList)
+    - [`getActiveFeatureListForVisitor`](https://developers.kameleoon.com/php-sdk.html#getActiveFeatureListForVisitor)
+
 ## 3.1.0 - 2023-04-17
 * The option **default_timeout** has been added to allow overriding the default timeout parameter specified in the configuration file. Additionally, the default timeout has been reduced to **5 seconds**.
 * An optional timeout parameter has been added for methods. If no timeout is specified, the SDK will use the default timeout value:

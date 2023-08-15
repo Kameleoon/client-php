@@ -1,17 +1,32 @@
 <?php
+
 namespace Kameleoon\Data;
 
 use Kameleoon\KameleoonClientImpl;
-use Kameleoon\Helpers\URLEncoding;
+use Kameleoon\Network\QueryBuilder;
+use Kameleoon\Network\QueryParam;
+use Kameleoon\Network\QueryParams;
 
 class PageView implements DataInterface
 {
-    private $url;
-    private $title;
-    private $referrers;
-    private $nonce;
+    public const EVENT_TYPE = "page";
 
-    public function __construct($url, $title, array $referrers = null)
+    private ?string $url;
+    private ?string $title;
+    private ?array $referrers;
+    private string $nonce;
+
+    public function getUrl(): ?string
+    {
+        return $this->url;
+    }
+
+    public function getTitle(): ?string
+    {
+        return $this->title;
+    }
+
+    public function __construct(?string $url, ?string $title, ?array $referrers = null)
     {
         $this->url = $url;
         $this->title = $title;
@@ -21,10 +36,16 @@ class PageView implements DataInterface
 
     public function obtainFullPostTextLine(): string
     {
-        return
-            "eventType=page&href=" . URLEncoding::encodeURIComponent($this->url) .
-            "&title=" . URLEncoding::encodeURIComponent($this->title) .
-            ($this->referrers == null ? "" : "&referrersIndices=[" . implode(",", $this->referrers) . "]") .
-            "&nonce=" . $this->nonce;
+        $qb = new QueryBuilder(
+            new QueryParam(QueryParams::EVENT_TYPE, self::EVENT_TYPE),
+            new QueryParam(QueryParams::HREF, $this->url),
+            new QueryParam(QueryParams::TITLE, $this->title),
+            new QueryParam(QueryParams::NONCE, $this->nonce),
+        );
+        if ($this->referrers != null) {
+            $strReferrers = "[" . implode(",", $this->referrers) . "]";
+            $qb->append(new QueryParam(QueryParams::REFERRERS_INDICES, $strReferrers));
+        }
+        return (string)$qb;
     }
 }

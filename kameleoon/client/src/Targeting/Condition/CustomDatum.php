@@ -1,28 +1,25 @@
 <?php
 
-namespace Kameleoon\Targeting\Conditions;
+declare(strict_types=1);
 
+namespace Kameleoon\Targeting\Condition;
+
+use Kameleoon\Data\CustomData;
 use Kameleoon\Helpers\StringHelper;
-use Kameleoon\Targeting\TargetingCondition;
 
 class CustomDatum extends TargetingCondition
 {
     const TYPE = "CUSTOM_DATUM";
 
-    private $index;
+    private int $index;
 
-    private $operator;
+    private string $operator;
 
-    private $value;
+    private ?string $value;
 
     public function getIndex()
     {
         return $this->index;
-    }
-
-    public function setIndex($index)
-    {
-        $this->index = $index;
     }
 
     public function getOperator()
@@ -30,46 +27,37 @@ class CustomDatum extends TargetingCondition
         return $this->operator;
     }
 
-    public function setOperator($operator)
-    {
-        $this->operator = $operator;
-    }
 
     public function getValue()
     {
         return $this->value;
     }
 
-    public function setValue($value)
+    public function __construct($conditionData)
     {
-        $this->value = $value;
+        parent::__construct($conditionData);
+        $this->index = intval($conditionData->customDataIndex);
+        $this->operator = $conditionData->valueMatchType;
+        $this->value = $conditionData->value;
     }
 
     public function check($targetingDatas): bool
     {
-        $customData = null;
-        foreach ($targetingDatas as $targetingData) {
-            $data = $targetingData->getData();
-            if (get_class($data) == "Kameleoon\Data\CustomData") {
-                $custom = $data;
-                if ($custom->getId() == $this->index) {
-                    $customData = $custom;
-                }
+        for ($i = count($targetingDatas) - 1; $i >= 0; $i--) {
+            $data = $targetingDatas[$i]->getData();
+            if ($data instanceof CustomData && $data->getId() === $this->index) {
+                return $this->checkTargeting($data->getValues());
             }
         }
 
-        if ($customData == null) {
-            return $this->operator == "UNDEFINED";
-        }
-        return $this->checkTargeting($customData->getValues());
-
+        return $this->operator === TargetingOperator::UNDEFINED;
     }
 
     private function checkTargeting(array $customDataValues): bool
     {
         $targeting = false;
         switch ($this->operator) {
-            case "CONTAINS":
+            case TargetingOperator::CONTAINS:
                 $targeting = $this->checkForMatch(
                     $customDataValues,
                     function ($value) {
@@ -77,7 +65,7 @@ class CustomDatum extends TargetingCondition
                     }
                 );
                 break;
-            case "EXACT":
+            case TargetingOperator::EXACT:
                 $targeting = $this->checkForMatch(
                     $customDataValues,
                     function ($value) {
@@ -85,7 +73,7 @@ class CustomDatum extends TargetingCondition
                     }
                 );
                 break;
-            case "REGULAR_EXPRESSION":
+            case TargetingOperator::REGULAR_EXPRESSION:
                 $targeting = $this->checkForMatch(
                     $customDataValues,
                     function ($value) {
@@ -93,42 +81,12 @@ class CustomDatum extends TargetingCondition
                     }
                 );
                 break;
-            case "LOWER":
-            case "EQUAL":
-            case "GREATER":
-                $number = floatval($this->value);
-                if (!is_nan($number)) {
-                    switch ($this->operator) {
-                        case "LOWER":
-                            $targeting = $this->checkForMatch(
-                                $customDataValues,
-                                function ($value) use ($number) {
-                                    return floatval($value) < $number;
-                                }
-                            );
-                            break;
-                        case "EQUAL":
-                            $targeting = $this->checkForMatch(
-                                $customDataValues,
-                                function ($value) use ($number) {
-                                    return floatval($value) == $number;
-                                }
-                            );
-                            break;
-                        case "GREATER":
-                            $targeting = $this->checkForMatch(
-                                $customDataValues,
-                                function ($value) use ($number) {
-                                    return floatval($value) > $number;
-                                }
-                            );
-                            break;
-                        default:
-                            break;
-                    }
-                }
+            case TargetingOperator::LOWER:
+            case TargetingOperator::EQUAL:
+            case TargetingOperator::GREATER:
+                $targeting = $this->compareNumberValues($this->value, $customDataValues);
                 break;
-            case "TRUE":
+            case TargetingOperator::IS_TRUE:
                 $targeting = $this->checkForMatch(
                     $customDataValues,
                     function ($value) {
@@ -136,7 +94,7 @@ class CustomDatum extends TargetingCondition
                     }
                 );
                 break;
-            case "FALSE":
+            case TargetingOperator::IS_FALSE:
                 $targeting = $this->checkForMatch(
                     $customDataValues,
                     function ($value) {
@@ -144,7 +102,7 @@ class CustomDatum extends TargetingCondition
                     }
                 );
                 break;
-            case "AMONG_VALUES":
+            case TargetingOperator::AMONG_VALUES:
                 $conditionValues = array_reduce(
                     json_decode($this->value),
                     function ($res, $key) {
@@ -172,6 +130,39 @@ class CustomDatum extends TargetingCondition
         foreach ($customDataValues as $value) {
             if ($func($value)) {
                 return true;
+            }
+        }
+        return false;
+    }
+
+    private function compareNumberValues(string $conditionValue, array $customDataValues): bool
+    {
+        $number = floatval($conditionValue);
+        if (!is_nan($number)) {
+            switch ($this->operator) {
+                case TargetingOperator::LOWER:
+                    return $this->checkForMatch(
+                        $customDataValues,
+                        function ($value) use ($number) {
+                            return floatval($value) < $number;
+                        }
+                    );
+
+                case TargetingOperator::EQUAL:
+                    return $this->checkForMatch(
+                        $customDataValues,
+                        function ($value) use ($number) {
+                            return floatval($value) == $number;
+                        }
+                    );
+
+                case TargetingOperator::GREATER:
+                    return $this->checkForMatch(
+                        $customDataValues,
+                        function ($value) use ($number) {
+                            return floatval($value) > $number;
+                        }
+                    );
             }
         }
         return false;

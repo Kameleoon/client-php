@@ -1,10 +1,22 @@
 <?php
+
 namespace Kameleoon\Data;
 
 use Kameleoon\KameleoonClientImpl;
+use Kameleoon\Network\QueryBuilder;
+use Kameleoon\Network\QueryParam;
+use Kameleoon\Network\QueryParams;
 
 class Browser implements DataInterface
 {
+    public const EVENT_TYPE = "staticData";
+
+    public const CHROME = 0;
+    public const INTERNET_EXPLORER = 1;
+    public const FIREFOX = 2;
+    public const SAFARI = 3;
+    public const OPERA = 4;
+    public const OTHER = 5;
 
     public static $browsers = array(
         "CHROME" => 0,
@@ -14,17 +26,37 @@ class Browser implements DataInterface
         "OPERA" => 4,
         "OTHER" => 5
     );
-    private $browser;
-    private $nonce;
+    private int $browserType;
+    private float $version;
+    private string $nonce;
 
-    public function __construct(int $browser)
+    public function getBrowserType(): float
     {
-        $this->browser = $browser;
+        return $this->browserType;
+    }
+
+    public function getVersion(): float
+    {
+        return $this->version;
+    }
+
+    public function __construct(int $browserType, float $version = NAN)
+    {
+        $this->browserType = $browserType;
+        $this->version = $version;
         $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
     public function obtainFullPostTextLine(): string
     {
-        return "eventType=staticData&browserIndex=" . $this->browser . "&nonce=" . $this->nonce;
+        $qb = new QueryBuilder(
+            new QueryParam(QueryParams::EVENT_TYPE, self::EVENT_TYPE),
+            new QueryParam(QueryParams::BROWSER_INDEX, (string)$this->browserType),
+            new QueryParam(QueryParams::NONCE, $this->nonce),
+        );
+        if (!is_nan($this->version)) {
+            $qb->append(new QueryParam(QueryParams::BROWSER_VERSION, (string)$this->version));
+        }
+        return (string)$qb;
     }
 }

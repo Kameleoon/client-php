@@ -1,42 +1,57 @@
 <?php
+
 namespace Kameleoon\Targeting;
 
-use Kameleoon\Targeting\Conditions\CustomDatum;
-use Kameleoon\Targeting\Conditions\ExclusiveExperiment;
-use Kameleoon\Targeting\Conditions\TargetedExperiment;
+use Kameleoon\Targeting\Condition\BrowserCondition;
+use Kameleoon\Targeting\Condition\ConversionCondition;
+use Kameleoon\Targeting\Condition\CustomDatum;
+use Kameleoon\Targeting\Condition\DeviceCondition;
+use Kameleoon\Targeting\Condition\ExclusiveExperiment;
+use Kameleoon\Targeting\Condition\PageTitleCondition;
+use Kameleoon\Targeting\Condition\PageUrlCondition;
+use Kameleoon\Targeting\Condition\SdkLanguageCondition;
+use Kameleoon\Targeting\Condition\TargetedExperiment;
+use Kameleoon\Targeting\Condition\TargetingCondition;
+use Kameleoon\Targeting\Condition\UnknownCondition;
+use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 
 class TargetingConditionsFactory
 {
-
-    public function getCondition($targetingConditionType, $conditionData)
+    public static function getCondition($conditionData): ?TargetingCondition
     {
-        switch ($targetingConditionType) {
+        switch ($conditionData->targetingType) {
             case CustomDatum::TYPE:
-                $customDatumCondition = new CustomDatum();
-                $customDatumCondition->setType($conditionData->targetingType);
-                $customDatumCondition->setInclude($conditionData->isInclude);
-                $customDatumCondition->setIndex(intval($conditionData->customDataIndex));
-                $customDatumCondition->setOperator($conditionData->valueMatchType);
-                $customDatumCondition->setValue($conditionData->value);
-                return $customDatumCondition;
+                return new CustomDatum($conditionData);
+
             case TargetedExperiment::TYPE:
-                $targetedExperimentCondition = new TargetedExperiment();
-                $targetedExperimentCondition->setType($conditionData->targetingType);
-                $targetedExperimentCondition->setInclude($conditionData->isInclude);
-                $targetedExperimentCondition->setExperiment($conditionData->experiment);
-                if(isset($conditionData->variation)) {
-                    $targetedExperimentCondition->setVariation($conditionData->variation);
-                }
-                $targetedExperimentCondition->setOperator($conditionData->variationMatchType);
-                return $targetedExperimentCondition;
+                return new TargetedExperiment($conditionData);
+
             case ExclusiveExperiment::TYPE:
-                $exclusiveExperimentCondition = new ExclusiveExperiment();
-                $exclusiveExperimentCondition->setType($conditionData->targetingType);
-                $exclusiveExperimentCondition->setInclude(true);
-                return $exclusiveExperimentCondition;
+                return new ExclusiveExperiment($conditionData);
+
+            case VisitorCodeCondition::TYPE:
+                return new VisitorCodeCondition($conditionData);
+
+            case PageUrlCondition::TYPE:
+                return new PageUrlCondition($conditionData);
+
+            case PageTitleCondition::TYPE:
+                return new PageTitleCondition($conditionData);
+
+            case DeviceCondition::TYPE:
+                return new DeviceCondition($conditionData);
+
+            case BrowserCondition::TYPE:
+                return new BrowserCondition($conditionData);
+
+            case ConversionCondition::TYPE:
+                return new ConversionCondition($conditionData);
+
+            case SdkLanguageCondition::TYPE:
+                return new SdkLanguageCondition($conditionData);
+
             default:
-                break;
+                return new UnknownCondition($conditionData);
         }
-        return null;
     }
 }

@@ -1,12 +1,13 @@
 <?php
-namespace Kameleoon\Targeting\Conditions;
 
-use Kameleoon\Targeting\TargetingCondition;
+declare(strict_types=1);
+
+namespace Kameleoon\Targeting\Condition;
 
 class TargetedExperiment extends TargetingCondition
 {
     const TYPE = "TARGET_EXPERIMENT";
-    
+
     private $experiment;
 
     private $variation;
@@ -18,19 +19,9 @@ class TargetedExperiment extends TargetingCondition
         return $this->experiment;
     }
 
-    public function setExperiment($experiment)
-    {
-        $this->experiment = $experiment;
-    }
-
     public function getOperator()
     {
         return $this->operator;
-    }
-
-    public function setOperator($operator)
-    {
-        $this->operator = $operator;
     }
 
     public function getVariation()
@@ -38,20 +29,23 @@ class TargetedExperiment extends TargetingCondition
         return $this->variation;
     }
 
-    public function setVariation($variation)
+    public function __construct($conditionData)
     {
-        $this->variation = $variation;
+        parent::__construct($conditionData);
+        $this->experiment = $conditionData->experiment ?? null;
+        $this->variation = $conditionData->variation ?? null;
+        $this->operator = $conditionData->variationMatchType ?? TargetingOperator::UNKNOWN;
     }
 
-    public function check($variationStorage)
+    public function check($variationStorage): bool
     {
         $targeting = false;
         $currentExperimentIdExist = isset($variationStorage[$this->experiment]);
-        switch($this->operator) {
-            case "EXACT":
+        switch ($this->operator) {
+            case TargetingOperator::EXACT:
                 $targeting = $currentExperimentIdExist && $variationStorage[$this->experiment] === $this->variation;
                 break;
-            case "ANY":
+            case TargetingOperator::ANY:
                 $targeting = $currentExperimentIdExist;
                 break;
             default:

@@ -1,7 +1,6 @@
 <?php
 namespace Kameleoon\Data;
 
-interface DataInterface
-{
-    public function obtainFullPostTextLine(): string;
-}
+use Kameleoon\Network\PostBodyLine;
+
+interface DataInterface extends PostBodyLine {}
