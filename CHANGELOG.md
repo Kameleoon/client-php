@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 ### Bug fixes
 * Fixed an issue where tracking requests were not sent.
 
-## 3.2.0 - 2023-08-15
+## 3.2.0 - 2023-08-15 `[Deprecated due critical issues]`
 ### Features
 * [`Browser`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#browser) data class now accepts a version number for the visitor's browser
 * Added new conditions for targeting:
