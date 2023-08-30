@@ -589,7 +589,7 @@ class KameleoonClientImpl implements KameleoonClient
     private function updateConfiguration($timeout)
     {
         try {
-            $configurationOutput = $this->networkManager->fetchConfiguration(null, $timeout);
+            $configurationOutput = $this->networkManager->fetchConfiguration($timeout);
             $configuration = json_decode($configurationOutput);
             if (
                 isset($configuration->experiments) &&

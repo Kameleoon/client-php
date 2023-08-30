@@ -78,7 +78,6 @@ class QueryParams
     public const SDK_VERSION = "sdkVersion";
     public const SITE_CODE = "siteCode";
     public const TITLE = "title";
-    public const TS = "ts";
     public const VALUES_COUNT_MAP = "valuesCountMap";
     public const VARIATION_ID = "variationId";
     public const VERSION = "version";

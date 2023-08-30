@@ -14,7 +14,7 @@ interface NetworkManager
     public function getDefaultTimeout(): int;
     public function getNetProvider(): NetProvider;
 
-    public function fetchConfiguration(?int $timestamp = null, ?int $timeout = null): ?string;
+    public function fetchConfiguration(?int $timeout = null): ?string;
     public function getRemoteData(string $key, ?int $timeout = null);
     public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null);
 

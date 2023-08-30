@@ -32,9 +32,12 @@ class NetworkManagerImpl implements NetworkManager
         return $this->netProvider;
     }
 
-    public function __construct(UrlProvider $urlProvider, ?string $environment,
-        int $defaultTimeout, NetProvider $netProvider)
-    {
+    public function __construct(
+        UrlProvider $urlProvider,
+        ?string $environment,
+        int $defaultTimeout,
+        NetProvider $netProvider
+    ) {
         $this->urlProvider = $urlProvider;
         $this->environment = $environment;
         $this->defaultTimeout = $defaultTimeout;
@@ -60,9 +63,9 @@ class NetworkManagerImpl implements NetworkManager
         return null;
     }
 
-    public function fetchConfiguration(?int $timestamp = null, ?int $timeout = null): ?string
+    public function fetchConfiguration(?int $timeout = null): ?string
     {
-        $url = $this->urlProvider->makeConfigurationUrl($this->environment, $timestamp);
+        $url = $this->urlProvider->makeConfigurationUrl($this->environment);
         $request = new GetRequest($url, null, $this->getTimeout($timeout), ResponseContentType::TEXT);
         return $this->makeGetCall($request);
     }

@@ -69,6 +69,7 @@ class NetProviderImpl implements NetProvider
                 $requestText .= sprintf(" -H \"%s: %s\"", $headerName, $headerValue);
             }
         }
+        $requestText .= sprintf(" \"%s\"", $request->url);
         if ($request->data !== null) {
             $requestText .= sprintf(" -d '%s'", $request->data);
         }

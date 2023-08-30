@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 3.2.1 - 2023-08-30
+### Bug fixes
+* Fixed an issue where tracking requests were not sent.
+
 ## 3.2.0 - 2023-08-15
 ### Features
 * [`Browser`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#browser) data class now accepts a version number for the visitor's browser

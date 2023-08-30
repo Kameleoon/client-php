@@ -103,14 +103,11 @@ class UrlProvider
         return sprintf("%s%s?%s", $this->dataApiUrl, self::GET_DATA_PATH, $qb);
     }
 
-    public function makeConfigurationUrl(?string $environment = null, ?int $timestamp = null): string
+    public function makeConfigurationUrl(?string $environment = null): string
     {
         $qb = new QueryBuilder(new QueryParam(QueryParams::SITE_CODE, $this->siteCode));
         if ($environment !== null) {
             $qb->append(new QueryParam(QueryParams::ENVIRONMENT, $environment));
-        }
-        if ($timestamp !== null) {
-            $qb->append(new QueryParam(QueryParams::TS, (string)$timestamp));
         }
         return sprintf("%s?%s", self::CONFIGURATION_API_URL, $qb);
     }
