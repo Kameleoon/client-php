@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 3.3.0 - 2023-09-01
+### Features
+* Added a method to fetch a visitor's remote data (with an option to add the data to the visitor):
+    - [`getRemoteVisitorData`](https://developers.kameleoon.com/php-sdk.html#getRemoteVisitorData)
+### Bug fixes
+* Fixed an issue where using the [`triggerExperiment`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#triggerexperiment) method might inadvertently include visitors in experiment results for experiments that they were supposed to be excluded from.
+
 ## 3.2.1 - 2023-08-30
 ### Bug fixes
 * Fixed an issue where tracking requests were not sent.

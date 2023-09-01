@@ -26,7 +26,6 @@ class VisitorVariation
 
     public function isValid(?int $respoolTime): bool
     {
-        //~ Maybe it is better to use `=== null` in this case?
         return ($respoolTime == null) || ($this->assignmentDate >= $respoolTime);
     }
 }

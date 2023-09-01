@@ -66,14 +66,14 @@ class NetProviderImpl implements NetProvider
         $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST";
         if ($request->headers !== null) {
             foreach ($request->headers as $headerName => $headerValue) {
-                $requestText .= sprintf(" -H \"%s: %s\"", $headerName, $headerValue);
+                $requestText .= sprintf(' -H "%s: %s"', $headerName, $headerValue);
             }
         }
-        $requestText .= sprintf(" \"%s\"", $request->url);
+        $requestText .= sprintf(' "%s"', $request->url);
         if ($request->data !== null) {
-            $requestText .= sprintf(" -d '%s'", $request->data);
+            $requestText .= sprintf(' -d "%s"', $request->data);
         }
-        $requestText .= " & r=\${r:=0};((r=r+1));if [ \$r -eq 64 ];then r=0;wait;fi;" . PHP_EOL;
+        $requestText .= ' & r=${r:=0};((r=r+1));if [ $r -eq 64 ];then r=0;wait;fi;' . PHP_EOL;
         $path = $this->getRequestsFilePath();
         file_put_contents($path, $requestText, FILE_APPEND | LOCK_EX);
         return $path;

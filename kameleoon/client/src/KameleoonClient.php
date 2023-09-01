@@ -61,4 +61,6 @@ interface KameleoonClient
     public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout): array;
 
     public function getEngineTrackingCode(string $visitorCode): string;
+
+    public function getRemoteVisitorData(string $visitorCode, ?int $timeout, bool $addData = true): array;
 }

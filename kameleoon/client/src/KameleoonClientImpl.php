@@ -33,6 +33,7 @@ use Kameleoon\Configuration\FeatureFlag;
 use Kameleoon\Configuration\Rule;
 use Kameleoon\Configuration\Variation;
 use Kameleoon\Configuration\VariationByExposition;
+use Kameleoon\Data\CustomData;
 use Kameleoon\Exception\ConfigurationNotLoaded;
 use Kameleoon\Exception\FeatureVariableNotFound;
 use Kameleoon\Helpers\SdkVersion;
@@ -144,7 +145,6 @@ class KameleoonClientImpl implements KameleoonClient
             // } else {
             $variationId = $this->calculateVariationForExperiment($visitorCode, $xpConf);
             $noneVariation = $variationId === null;
-            $variationId = $variationId ?? 0; //~ Need to send reference (0) if variation isn't found
             $this->saveVariation($visitorCode, $experimentID, $variationId);
             // }
         } else {
@@ -350,6 +350,52 @@ class KameleoonClientImpl implements KameleoonClient
     public function retrieveDataFromRemoteSource(string $key, ?int $timeout = null)
     {
         return $this->getRemoteData($key, $timeout);
+    }
+
+    public function getRemoteVisitorData(string $visitorCode, ?int $timeout, bool $addData = true): array
+    {
+        $json = $this->networkManager->getRemoteVisitorData($visitorCode, $timeout);
+        if ($json === null) {
+            error_log("Get remote visitor data failed");
+            return [];
+        }
+        $customDataList = $this->parseCustomDataList($json);
+        if ($addData) {
+            $this->addData($visitorCode, ...$customDataList);
+        }
+        return $customDataList;
+    }
+    private function parseCustomDataList($json): array
+    {
+        $latestRecord = $json->currentVisit ?? null;
+        if ($latestRecord === null) {
+            $previousVisits = $json->previousVisits ?? null;
+            if (($previousVisits === null) || (count($previousVisits) === 0)) {
+                return [];
+            }
+            $latestRecord = $previousVisits[0];
+        }
+        $customDataEvents = $latestRecord->customDataEvents ?? null;
+        return ($customDataEvents !== null) ? $this->parseCustomDataListFromEvents($customDataEvents) : [];
+    }
+    private function parseCustomDataListFromEvents($customDataEvents): array
+    {
+        $customDataList = [];
+        foreach ($customDataEvents as $event) {
+            $customDataJson = $event->data ?? null;
+            if ($customDataJson === null) {
+                continue;
+            }
+            array_push($customDataList, $this->parseCustomData($customDataJson));
+        }
+        return $customDataList;
+    }
+    private function parseCustomData($json): CustomData
+    {
+        $id = $json->index ?? -1;
+        $valuesCountMap = (array)$json->valuesCountMap ?? [];
+        $values = array_keys($valuesCountMap);
+        return new CustomData($id, ...$values);
     }
 
     public function getFeatureAllVariables(string $featureKey, string $variationKey, ?int $timeout = null): array
@@ -573,7 +619,7 @@ class KameleoonClientImpl implements KameleoonClient
         return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . $suffix . join("", $respoolTimes)), 0, 8), 16) / pow(2, 32));
     }
 
-    public static function obtainNonce() //~ Why this method is in KameleoonClient?
+    public static function obtainNonce()
     {
         $alphabetLength = strlen(self::HEXADECIMAL_ALPHABET);
         $result = "";
@@ -590,7 +636,7 @@ class KameleoonClientImpl implements KameleoonClient
     {
         try {
             $configurationOutput = $this->networkManager->fetchConfiguration($timeout);
-            $configuration = json_decode($configurationOutput);
+            $configuration = ($configurationOutput !== null) ? json_decode($configurationOutput) : null;
             if (
                 isset($configuration->experiments) &&
                 isset($configuration->featureFlagConfigurations)
