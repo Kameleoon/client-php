@@ -31,8 +31,7 @@ class BrowserCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        $browser = $this->getLastTargetingData($data, "Kameleoon\Data\Browser");
-        return $browser !== null && $this->checkTargeting($browser);
+        return $data instanceof Browser && $this->checkTargeting($data);
     }
 
     private function checkTargeting(Browser $browser)
@@ -58,7 +57,7 @@ class BrowserCondition extends TargetingCondition
             case TargetingOperator::LOWER:
                 return $browser->getVersion() < $versionNumber;
             default:
-                echo "Unexpected comparing operation for Browser condition: " . $this->operator;
+                error_log("Unexpected comparing operation for Browser condition: " . $this->operator);
                 return false;
         }
     }

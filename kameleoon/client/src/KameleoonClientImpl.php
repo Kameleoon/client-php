@@ -3,16 +3,8 @@
 namespace Kameleoon;
 
 use Exception;
-use Kameleoon\Data\UserAgent;
-use Kameleoon\Exception\ExperimentConfigurationNotFound;
-use Kameleoon\Exception\FeatureConfigurationNotFound;
-use Kameleoon\Exception\NotAllocated;
-use Kameleoon\Exception\NotTargeted;
-use Kameleoon\Exception\VariationConfigurationNotFound;
-use Kameleoon\Exception\InvalidArgumentException;
-use Kameleoon\Exception\SiteCodeDisabled;
-use Kameleoon\Exception\VisitorCodeNotValid;
-use Kameleoon\Targeting\TargetingData;
+use Generator;
+use Kameleoon\Exception\VisitorCodeInvalid;
 
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\ExclusiveExperiment;
@@ -27,97 +19,76 @@ use Kameleoon\Targeting\Condition\SdkLanguageCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 use Kameleoon\Targeting\TargetingEngine;
 
-use Kameleoon\Configuration\Configuration;
-use Kameleoon\Configuration\Experiment;
+use Kameleoon\Configuration\DataFile;
 use Kameleoon\Configuration\FeatureFlag;
 use Kameleoon\Configuration\Rule;
 use Kameleoon\Configuration\Variation;
 use Kameleoon\Configuration\VariationByExposition;
 use Kameleoon\Data\CustomData;
-use Kameleoon\Exception\ConfigurationNotLoaded;
+use Kameleoon\Data\Manager\AssignedVariation;
+use Kameleoon\Data\Manager\Visitor;
+use Kameleoon\Data\Manager\VisitorManager;
+use Kameleoon\Data\Manager\VisitorManagerImpl;
+use Kameleoon\Exception\DataFileInvalid;
+use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureVariableNotFound;
+use Kameleoon\Exception\FeatureVariationNotFound;
+use Kameleoon\Exception\SiteCodeIsEmpty;
 use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Hybrid\HybridManager;
+use Kameleoon\Hybrid\HybridManagerImpl;
 use Kameleoon\Network\ActivityEvent;
-use Kameleoon\Network\ExperimentEvent;
-use Kameleoon\Storage\VariationStorage;
+use Kameleoon\Network\Cookie\CookieManager;
+use Kameleoon\Network\Cookie\CookieManagerImpl;
 use Kameleoon\Network\NetworkManager;
 use Kameleoon\Network\NetworkManagerFactory;
+use Kameleoon\Network\NetworkManagerFactoryImpl;
 
 class KameleoonClientImpl implements KameleoonClient
 {
-    const DEFAULT_TIMEOUT_MILLISECONDS = 5000;
-    const SECONDS_BETWEEN_CONFIGURATION_UPDATE = 3600;
-    const HEXADECIMAL_ALPHABET = "0123456789ABCDEF";
-    const NONCE_BYTE_LENGTH = 8;
-    const DEFAULT_KAMELEOON_WORK_DIR = "/tmp/kameleoon/php-client/";
     const FILE_CONFIGURATION_NAME = "kameleoon-configuration-";
     const VISITOR_CODE_MAX_LENGTH = 255;
 
-    private $configurations;
-    private $unsentData;
-    private $configurationFilePath;
-    private $commonConfiguration;
-    private $visitorCode;
-    private $debugMode = false;
-    private $refreshInterval;
-    private $kameleoonWorkDir;
-    private $targetingData;
-    private $configurationLoaded;
-    private $cookieOptions;
-    private $environment = null;
-    private $userAgentData = null;
-    private $defaultTimeout = null;
+    private DataFile $dataFile;
+    private KameleoonClientConfig $clientConfig;
+    private string $configurationFilePath;
+    private string $visitorCode;
 
-    private VariationStorage $variationStorage;
+    private VisitorManager $visitorManager;
     private HybridManager $hybridManager;
     private NetworkManager $networkManager;
+    private CookieManager $cookieManager;
 
     public function __construct(
         string $siteCode,
-        string $configurationFilePath,
-        VariationStorage $variationStorage,
-        HybridManager $hybridManager,
-        NetworkManagerFactory $networkManagerFactory
+        KameleoonClientConfig $clientConfig,
+        ?VisitorManager $visitorManager = null,
+        ?HybridManager $hybridManager = null,
+        ?NetworkManagerFactory $networkManagerFactory = null
     ) {
-        $this->configurations = (object) array(
-            "experiments" => array(),
-            "featureFlags" => array()
-        );
-        $this->unsentData = array();
-        $this->targetingData = array();
-        $this->configurationLoaded = false;
-        $this->userAgentData = array();
-
-        $this->variationStorage = $variationStorage;
-        $this->hybridManager = $hybridManager;
-
-        $this->commonConfiguration = ConfigurationParser::parse($configurationFilePath);
-        $this->kameleoonWorkDir = isset($this->commonConfiguration["kameleoon_work_dir"]) ?
-            $this->commonConfiguration["kameleoon_work_dir"] : self::DEFAULT_KAMELEOON_WORK_DIR;
-        $this->configurationFilePath = $this->kameleoonWorkDir . self::FILE_CONFIGURATION_NAME .
-            $siteCode . ".json";
-        $this->refreshInterval = isset($this->commonConfiguration["actions_configuration_refresh_interval"]) ?
-            $this->commonConfiguration["actions_configuration_refresh_interval"] * 60 :
-            self::SECONDS_BETWEEN_CONFIGURATION_UPDATE;
-        $this->defaultTimeout = $this->commonConfiguration["default_timeout"] ?? self::DEFAULT_TIMEOUT_MILLISECONDS;
-        if (isset($this->commonConfiguration["debug_mode"])) {
-            $this->debugMode = $this->commonConfiguration["debug_mode"] == "true";
+        if (empty($siteCode)) {
+            throw new SiteCodeIsEmpty("Provided siteCode is empty");
         }
-        $this->cookieOptions = isset($this->commonConfiguration["cookie_options"]) ?
-            $this->commonConfiguration["cookie_options"] : array();
 
-        if (!is_dir($this->kameleoonWorkDir)) {
-            mkdir($this->kameleoonWorkDir, 0755, true);
+        $this->visitorManager = $visitorManager ?? new VisitorManagerImpl();
+        $this->hybridManager = $hybridManager ?? new HybridManagerImpl();
+        $this->cookieManager = new CookieManagerImpl($clientConfig->getCookieOptions());
+
+        $this->clientConfig = $clientConfig;
+
+        $kameleoonWorkDir = $this->clientConfig->getKameleoonWorkDir();
+        $this->configurationFilePath = $kameleoonWorkDir . self::FILE_CONFIGURATION_NAME . $siteCode . ".json";
+
+        if (!is_dir($kameleoonWorkDir)) {
+            mkdir($kameleoonWorkDir, 0755, true);
         }
-        $this->environment = isset($this->commonConfiguration["environment"]) ?
-            $this->commonConfiguration["environment"] : null;
 
+        $networkManagerFactory = $networkManagerFactory ?? new NetworkManagerFactoryImpl();
         $this->networkManager = $networkManagerFactory->create(
             $siteCode,
-            $this->environment,
-            $this->defaultTimeout,
-            $this->kameleoonWorkDir
+            $this->clientConfig->getEnvironment(),
+            $this->clientConfig->getDefaultTimeoutMillisecond(),
+            $kameleoonWorkDir
         );
     }
 
@@ -125,49 +96,51 @@ class KameleoonClientImpl implements KameleoonClient
      * API Methods (Public Methods)
      */
 
-    public function triggerExperiment(string $visitorCode, int $experimentID, ?int $timeout = null)
+    public function getVisitorCode(?string $defaultVisitorCode = null, ?int $timeout = null): string
     {
-        $this->validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
-        $xpConf = $this->configurations->experiments[$experimentID] ?? null;
-        if ($xpConf === null) {
-            throw new ExperimentConfigurationNotFound("Experiment configuration {$experimentID} isn't found");
+        if (!isset($this->visitorCode)) {
+            if ($defaultVisitorCode !== null) {
+                $this->validateVisitorCode($defaultVisitorCode);
+            }
+            $this->loadConfiguration($timeout);
+            $this->visitorCode = $this->cookieManager->getOrAdd($defaultVisitorCode);
         }
-        $this->checkSiteCodeEnable($xpConf);
-        $targeted = $this->checkTargeting($visitorCode, $experimentID, $xpConf);
-        if ($targeted) {
-            // Disable searching in variation storage (uncommented if you need use variation storage)
-            // chech for saved variation for rule if it's experimentation rule
-            // $savedVariation = $this->variationStorage->getSavedVariation($visitorCode, $xpConf);
-            // if (!is_null($savedVariation)) {
-            //     $noneVariation = false;
-            //     $variationId = $savedVariation;
-            // } else {
-            $variationId = $this->calculateVariationForExperiment($visitorCode, $xpConf);
-            $noneVariation = $variationId === null;
-            $this->saveVariation($visitorCode, $experimentID, $variationId);
-            // }
-        } else {
-            $variationId = null;
-            $noneVariation = null;
-        }
-        $this->sendTrackingRequest($visitorCode, $experimentID, $variationId);
-        if (!$targeted) {
-            throw new NotTargeted("Visitor {$visitorCode} isn't targeted for experiment {$experimentID}");
-        }
-        if ($noneVariation) {
-            throw new NotAllocated("Visitor {$visitorCode} isn't allocated for experiment {$experimentID}");
-        }
-        return $variationId;
+        return $this->visitorCode;
     }
 
-    /**
-     * @deprecated deprecated since version 3.0.0. Please use `isFeatureActive`
-     */
-    public function activateFeature(string $visitorCode, string $featureKey, ?int $timeout = null): bool
+    public function addData($visitorCode, ...$data)
     {
-        error_log("Deprecated: `activateFeature` is deprecated. Please use `isFeatureActive`instead ");
-        return $this->isFeatureActive($visitorCode, $featureKey, $timeout);
+        $this->validateVisitorCode($visitorCode);
+        $this->visitorManager->getOrCreateVisitor($visitorCode)->addData(...$data);
+    }
+
+    public function flush($visitorCode = null, ?int $timeout = null)
+    {
+        $this->loadConfiguration($timeout);
+        if ($visitorCode !== null) {
+            $this->validateVisitorCode($visitorCode);
+            $this->sendTrackingRequest($visitorCode);
+        } else {
+            foreach ($this->visitorManager as $user) {
+                $this->flush($user, $timeout);
+            }
+        }
+    }
+
+    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null)
+    {
+        $this->addData($this->validateVisitorCode($visitorCode), new Data\Conversion($goalID));
+        $this->flush($visitorCode, $timeout);
+    }
+
+    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null): bool
+    {
+        try {
+            [, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
+            return $variationKey != Variation::VARIATION_OFF;
+        } catch (FeatureEnvironmentDisabled $ex) {
+            return false;
+        }
     }
 
     public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null): string
@@ -195,148 +168,46 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null): bool
+    public function getFeatureVariationVariables(string $featureKey, string $variationKey, ?int $timeout = null): array
     {
-        [$ff, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
-        return $variationKey != Variation::VARIATION_OFF;
+        $this->loadConfiguration($timeout);
+        $featureFlag = $this->dataFile->getFeatureFlag($featureKey);
+        $variation = $featureFlag->getVariation($variationKey);
+        if (is_null($variation)) {
+            throw new FeatureVariationNotFound("Variation key {$variationKey} not found");
+        }
+        return array_map(fn ($var) => $var->getValue(), $variation->variables);
     }
 
-    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0)
+    public function getFeatureList(?int $timeout = null): array
     {
-        $this->addData($this->validateVisitorCode($visitorCode), new Data\Conversion($goalID));
-        $this->flush($visitorCode);
+        $this->loadConfiguration($timeout);
+        return array_keys($this->dataFile->featureFlags);
     }
 
-    public function addData($visitorCode, ...$data)
+    public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array
     {
         $this->validateVisitorCode($visitorCode);
-        $this->getUnsentData($visitorCode);
-        if (!isset($this->targetingData[$visitorCode])) {
-            $this->targetingData[$visitorCode] = array();
-        }
-        foreach ($data as $datum) {
-            if ($datum instanceof UserAgent) {
-                $this->addUserAgent($visitorCode, $datum);
-            } else {
-                array_push($this->unsentData[$visitorCode], $datum);
-                array_push($this->targetingData[$visitorCode], new TargetingData($datum));
-            }
-        }
-    }
-
-    public function flush($visitorCode = null)
-    {
-        if ($visitorCode !== null) {
-            $this->validateVisitorCode($visitorCode);
-            $this->sendTrackingRequest($visitorCode);
-        } else {
-            foreach ($this->getUnsentUsers() as $user) {
-                $this->flush($user);
-            }
-        }
-    }
-
-    /**
-     * @deprecated deprecated since version 3.0.0. Please use `getVisitorCode`
-     */
-    public function obtainVisitorCode($topLevelDomain, $visitorCode = null)
-    {
-        error_log("Deprecated: `obtainVisitorCode` is deprecated. Please use `getVisitorCode`instead ");
-        return $this->getVisitorCode($topLevelDomain, $visitorCode);
-    }
-
-    // Here you must provide your own base domain, eg mydomain.com
-    public function getVisitorCode($topLevelDomain = null, $visitorCode = null)
-    {
-        if (isset($this->visitorCode)) {
-            return $this->visitorCode;
-        } else {
-            if (isset($_COOKIE["kameleoonVisitorCode"])) {
-                $value = $_COOKIE["kameleoonVisitorCode"];
-                if (strpos($value, "_js_") !== false) {
-                    $visitorCode = substr($value, 4);
-                } else {
-                    $visitorCode = $value;
-                }
-            }
-            if (is_null($visitorCode)) {
-                $alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
-                $alphabetLength = strlen($alphabet);
-                $visitorCode = "";
-                for ($i = 0; $i < 16; $i++) {
-                    $randomNumber = floor((mt_rand() / mt_getrandmax()) * $alphabetLength);
-                    $visitorCode .= substr($alphabet, $randomNumber, 1);
-                }
-            }
-
-            $secure = false;
-            $httpOnly = false;
-            $samesite = "Lax";
-            $domain = null;
-
-            if (isset($this->cookieOptions["secure"])) {
-                $secure = $this->cookieOptions["secure"];
-            }
-            if (isset($this->cookieOptions["http_only"])) {
-                $httpOnly = $this->cookieOptions["http_only"];
-            }
-            if (isset($this->cookieOptions["samesite"])) {
-                $samesite = $this->cookieOptions["samesite"];
-            }
-            if (!is_null($topLevelDomain)) {
-                $domain = $topLevelDomain;
-            } elseif (isset($this->cookieOptions["domain"])) {
-                $domain = $this->cookieOptions["domain"];
-            } else {
-                throw new InvalidArgumentException('Domain is required');
-            }
-
-            if (version_compare(phpversion(), '7.3', '<')) {
-                setcookie("kameleoonVisitorCode", $visitorCode, time() + 32832000, "/", $domain, $secure, $httpOnly);
-            } else {
-                $cookie_options = array(
-                    "expires" => time() + 32832000,
-                    "path" => '/',
-                    "domain" => $domain,
-                    "secure" => $secure,
-                    "httponly" => $httpOnly,
-                    "samesite" => $samesite
-                );
-                setcookie("kameleoonVisitorCode", $visitorCode, $cookie_options);
-            }
-            $this->visitorCode = (string) $visitorCode;
-            return $this->validateVisitorCode($visitorCode);
-        }
-    }
-
-    /**
-     * @deprecated deprecated since version 3.0.0. Please use `getVariationAssociatedData`
-     */
-    public function obtainVariationAssociatedData(int $variationId, ?int $timeout = null)
-    {
-        error_log("Deprecated: `obtainVariationAssociatedData` is deprecated. " .
-            "Please use `getVariationAssociatedData`instead ");
-        return $this->getVariationAssociatedData($variationId, $timeout);
-    }
-
-    public function getVariationAssociatedData(int $variationId, ?int $timeout = null)
-    {
-        //check that configuration is loaded
+        $arrayKeys = array();
         $this->loadConfiguration($timeout);
-
-        $result = null;
-        foreach ($this->configurations->experiments as $experiment) {
-            foreach ($experiment->variationConfigurations as $vid => $variationConfiguration) {
-                if ($vid == $variationId || strval($vid) == $variationId) {
-                    $result = $variationConfiguration->customJson;
-                }
+        foreach ($this->dataFile->featureFlags as $featureFlag) {
+            [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
+            if ($variationKey != Variation::VARIATION_OFF) {
+                $arrayKeys[] = $featureFlag->featureKey;
             }
         }
-        if ($result === null) {
-            throw new VariationConfigurationNotFound("Variation configuration not found");
-        }
-        return $result;
+        return $arrayKeys;
     }
+
+    public function getEngineTrackingCode(string $visitorCode): string
+    {
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
+        return $this->hybridManager->getEngineTrackingCode(
+            !is_null($visitor) ? $visitor->getAssignedVariations() : null
+        );
+    }
+
 
     public function getRemoteData(string $key, ?int $timeout = null)
     {
@@ -347,12 +218,7 @@ class KameleoonClientImpl implements KameleoonClient
         return $data;
     }
 
-    public function retrieveDataFromRemoteSource(string $key, ?int $timeout = null)
-    {
-        return $this->getRemoteData($key, $timeout);
-    }
-
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout, bool $addData = true): array
+    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true): array
     {
         $json = $this->networkManager->getRemoteVisitorData($visitorCode, $timeout);
         if ($json === null) {
@@ -370,7 +236,7 @@ class KameleoonClientImpl implements KameleoonClient
         $latestRecord = $json->currentVisit ?? null;
         if ($latestRecord === null) {
             $previousVisits = $json->previousVisits ?? null;
-            if (($previousVisits === null) || (count($previousVisits) === 0)) {
+            if ($previousVisits === null || empty($previousVisits)) {
                 return [];
             }
             $latestRecord = $previousVisits[0];
@@ -386,10 +252,11 @@ class KameleoonClientImpl implements KameleoonClient
             if ($customDataJson === null) {
                 continue;
             }
-            array_push($customDataList, $this->parseCustomData($customDataJson));
+            $customDataList[] = $this->parseCustomData($customDataJson);
         }
         return $customDataList;
     }
+
     private function parseCustomData($json): CustomData
     {
         $id = $json->index ?? -1;
@@ -398,68 +265,11 @@ class KameleoonClientImpl implements KameleoonClient
         return new CustomData($id, ...$values);
     }
 
-    public function getFeatureAllVariables(string $featureKey, string $variationKey, ?int $timeout = null): array
-    {
-        $this->loadConfiguration($timeout);
-
-        $featureFlag = $this->findFeatureFlag($featureKey);
-        $variation = $featureFlag->getVariation($variationKey);
-        if (is_null($variation)) {
-            throw new VariationConfigurationNotFound("Variation key {$variationKey} not found");
-        }
-        return array_map(fn ($var) => $var->getValue(), $variation->variables);
-    }
-
-    public function getExperimentList(?int $timeout = null): array
-    {
-        $this->loadConfiguration($timeout);
-        return array_keys($this->configurations->experiments);
-    }
-
-    public function getExperimentListForVisitor(
-        string $visitorCode,
-        bool $onlyAllocated = true,
-        ?int $timeout = null
-    ): array {
-        $this->loadConfiguration($timeout);
-        $this->validateVisitorCode($visitorCode);
-        $arrayIds = array();
-        foreach ($this->configurations->experiments as $experiment) {
-            if (
-                $this->checkTargeting($visitorCode, $experiment->id, $experiment) &&
-                (!$onlyAllocated || !is_null($this->calculateVariationForExperiment($visitorCode, $experiment)))
-            ) {
-                array_push($arrayIds, $experiment->id);
-            }
-        }
-        return $arrayIds;
-    }
-
-    public function getFeatureList(?int $timeout = null): array
-    {
-        $this->loadConfiguration($timeout);
-        return array_keys($this->configurations->featureFlags);
-    }
-
-    public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array
+    public function setLegalConsent(string $visitorCode, bool $legalConsent): void
     {
         $this->validateVisitorCode($visitorCode);
-        $arrayKeys = array();
-        $this->loadConfiguration($timeout);
-        foreach ($this->configurations->featureFlags as $featureFlag) {
-            [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
-            $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
-            if ($variationKey != Variation::VARIATION_OFF) {
-                array_push($arrayKeys, $featureFlag->featureKey);
-            }
-        }
-        return $arrayKeys;
-    }
-
-    public function getEngineTrackingCode(string $visitorCode): string
-    {
-        $visitorVariationStorage = $this->variationStorage->getSavedVariations($visitorCode);
-        return $this->hybridManager->getEngineTrackingCode($visitorVariationStorage);
+        $this->visitorManager->getOrCreateVisitor($visitorCode)->setLegalConsent($legalConsent);
+        $this->cookieManager->update($visitorCode, $legalConsent);
     }
 
     /*
@@ -473,13 +283,13 @@ class KameleoonClientImpl implements KameleoonClient
     ): array {
         $this->loadConfiguration($timeout);
         $this->validateVisitorCode($visitorCode);
-        $featureFlag = $this->findFeatureFlag($featureKey);
+        $featureFlag = $this->dataFile->getFeatureFlag($featureKey);
         [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
         $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
-        $experimentId = ($rule !== null) ? $rule->experimentId : null;
-        $variationId = ($variation !== null) ? $variation->variationId ?? 0 : null;
-        $this->sendTrackingRequest($visitorCode, $experimentId, $variationId);
-        $this->saveVariation($visitorCode, $experimentId, $variationId);
+        $experimentId = !is_null($rule) ? $rule->experimentId : null;
+        $variationId = !is_null($variation) ? $variation->variationId : null;
+        $this->saveVariation($visitorCode, $experimentId, $variationId, $rule !== null && $rule->isTargetedDelivery());
+        $this->sendTrackingRequest($visitorCode);
         return [$featureFlag, $variationKey];
     }
 
@@ -491,7 +301,7 @@ class KameleoonClientImpl implements KameleoonClient
         if ($varByExp != null) {
             return $varByExp->variationKey;
         }
-        if ($rule != null && $rule->type == Rule::EXPERIMENTATION) {
+        if ($rule != null && $rule->isExperiment()) {
             return Variation::VARIATION_OFF;
         }
         return $defaultVariationKey;
@@ -500,45 +310,55 @@ class KameleoonClientImpl implements KameleoonClient
     private function saveVariation(
         string $visitorCode,
         ?int $experimentId,
-        ?int $variationId
+        ?int $variationId,
+        bool $isTargetedDelivery
     ) {
         if (!is_null($experimentId) && !is_null($variationId)) {
-            $this->variationStorage->saveVariation(
-                $visitorCode,
+            $this->visitorManager->getOrCreateVisitor($visitorCode)->assignVariation(
                 $experimentId,
-                $variationId
+                $variationId,
+                $isTargetedDelivery ?
+                    AssignedVariation::RULE_TYPE_TARGETED_DELIVERY : AssignedVariation::RULE_TYPE_EXPERIMENTATION
             );
         }
+    }
+
+    private function shouldDataFileBeUpdated(): bool
+    {
+        return !file_exists($this->configurationFilePath) ||
+            (time() >= filemtime($this->configurationFilePath) + $this->clientConfig->getRefreshIntervalSecond());
+    }
+
+    private function getTimeout(?int $timeout = null): int
+    {
+        return $timeout ?? $this->clientConfig->getDefaultTimeoutMillisecond();
     }
 
     //load configuration if it was not loaded
     private function loadConfiguration(?int $timeout = null)
     {
-        $needUpdateByRefreshInterval = file_exists($this->configurationFilePath) &&
-            (time() >= filemtime($this->configurationFilePath) + $this->refreshInterval);
-        if (!$this->configurationLoaded || $needUpdateByRefreshInterval) {
-            $timeout = $timeout ?? $this->defaultTimeout;
-            if (file_exists($this->configurationFilePath)) {
-                $fp = fopen($this->configurationFilePath, "r+");
-                if (!$needUpdateByRefreshInterval || !flock($fp, LOCK_EX)) {
-                    try {
-                        $obj = json_decode(file_get_contents($this->configurationFilePath, true));
-                        $this->configurations = Configuration::parse($obj);
-                    } catch (Exception $e) {
-                        if (!flock($fp, LOCK_EX)) {
-                            $this->updateConfiguration($timeout);
-                            flock($fp, LOCK_UN);
-                        }
-                    }
-                } else {
-                    $this->updateConfiguration($timeout);
-                    flock($fp, LOCK_UN);
-                }
-            } else {
-                $this->updateConfiguration($timeout);
+        $dataFileShouldBeUpdated = $this->shouldDataFileBeUpdated();
+        if (!isset($this->dataFile) || !$this->dataFile->isLoaded() || $dataFileShouldBeUpdated) {
+            if ($dataFileEmpty = !file_exists($this->configurationFilePath)) {
+                $fp = fopen($this->configurationFilePath, "a");
+                fclose($fp);
             }
+            $fp = fopen($this->configurationFilePath, "r+");
+            if ($dataFileShouldBeUpdated && flock($fp, LOCK_EX)) {
+                $this->updateConfiguration($this->getTimeout($timeout), $dataFileEmpty);
+                flock($fp, LOCK_UN);
+            } else {
+                try {
+                    $this->loadDataFileLocal();
+                } catch (DataFileInvalid $e) {
+                    if (flock($fp, LOCK_EX)) {
+                        $this->updateConfiguration($this->getTimeout($timeout), true);
+                        flock($fp, LOCK_UN);
+                    }
+                }
+            }
+            $this->dataFile->setLoaded();
         }
-        $this->configurationLoaded = true;
     }
 
     // check targeting
@@ -564,23 +384,34 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function getConditionData($type, $visitorCode, $campaignId)
     {
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
         switch ($type) {
             case CustomDatum::TYPE:
-            case PageUrlCondition::TYPE:
+                return !is_null($visitor) ? $visitor->getCustomData() : null;
+
             case PageTitleCondition::TYPE:
+                return !is_null($visitor) ? $visitor->getPageView() : null;
+
+            case PageUrlCondition::TYPE:
+                return !is_null($visitor) ? $visitor->getPageViewVisit() : null;
+
             case DeviceCondition::TYPE:
+                return !is_null($visitor) ? $visitor->getDevice() : null;
+
             case BrowserCondition::TYPE:
+                return !is_null($visitor) ? $visitor->getBrowser() : null;
+
             case ConversionCondition::TYPE:
-                return $this->getTargetingData($visitorCode);
+                return !is_null($visitor) ? $visitor->getConversion() : null;
 
             case VisitorCodeCondition::TYPE:
                 return $visitorCode;
 
             case TargetedExperiment::TYPE:
-                return $this->variationStorage->getSavedVariations($visitorCode);
+                return !is_null($visitor) ? $visitor->getAssignedVariations() : [];
 
             case ExclusiveExperiment::TYPE:
-                return [$campaignId, $this->variationStorage->getSavedVariations($visitorCode)];
+                return [$campaignId, !is_null($visitor) ? $visitor->getAssignedVariations() : []];
 
             case SdkLanguageCondition::TYPE:
                 return new SdkInfo(SdkVersion::getName(), SdkVersion::getVersion());
@@ -590,65 +421,51 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    private function obtainHashDouble(string $visitorCode, int $containerID, array $variationConfigurations)
+    private function obtainHashDouble(string $visitorCode, int $containerID, ?int $respoolTime = null)
     {
-        return $this->obtainHashDoubleCommon($visitorCode, $containerID, $variationConfigurations);
+        $suffix = !is_null($respoolTime) ? (string) $respoolTime : '';
+        return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . $suffix), 0, 8), 16) / pow(2, 32));
     }
 
-    private function obtainHashDoubleRule(string $visitorCode, int $containerID, ?int $respoolTime)
+    private function applyNewConfiguration($dataFileJson)
     {
-        $suffix = '';
-        if (!is_null($respoolTime)) {
-            $suffix = (string) $respoolTime;
-        }
-        return $this->obtainHashDoubleCommon($visitorCode, $containerID, array(), $suffix);
+        $this->dataFile = new DataFile($dataFileJson, $this->clientConfig->getEnvironment());
+        $consentRequired = $this->dataFile->settings->isConsentRequired()
+            && !$this->dataFile->hasAnyTargetedDeliveryRule();
+        $this->cookieManager->setConsentRequired($consentRequired);
     }
 
-    private function obtainHashDoubleCommon(
-        string $visitorCode,
-        int $containerID,
-        array $variationConfigurations,
-        string $suffix = ''
-    ) {
-        $respoolTimes = array();
-        foreach ($variationConfigurations as $v) {
-            if ($v->respoolTime != null) {
-                array_push($respoolTimes, $v->respoolTime);
-            }
-        }
-        return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . $suffix . join("", $respoolTimes)), 0, 8), 16) / pow(2, 32));
-    }
-
-    public static function obtainNonce()
+    private function loadDataFileLocal()
     {
-        $alphabetLength = strlen(self::HEXADECIMAL_ALPHABET);
-        $result = "";
-
-        for ($i = 0; $i < self::NONCE_BYTE_LENGTH * 2; $i++) {
-            $randomNumber = floor((mt_rand() / mt_getrandmax()) * $alphabetLength);
-            $result .= substr(self::HEXADECIMAL_ALPHABET, $randomNumber, 1);
+        $dataFileJsonLocal = json_decode(file_get_contents($this->configurationFilePath, true));
+        if ($dataFileJsonLocal === null) {
+            throw new DataFileInvalid("Local data file is invalid");
         }
-
-        return $result;
+        $this->applyNewConfiguration($dataFileJsonLocal);
     }
 
-    private function updateConfiguration($timeout)
+    private function updateConfiguration(int $timeout, bool $forceNetworkRequest = false)
     {
         try {
-            $configurationOutput = $this->networkManager->fetchConfiguration($timeout);
-            $configuration = ($configurationOutput !== null) ? json_decode($configurationOutput) : null;
-            if (
-                isset($configuration->experiments) &&
-                isset($configuration->featureFlagConfigurations)
-            ) {
-                file_put_contents($this->configurationFilePath, $configurationOutput);
-                $this->configurations = Configuration::parse($configuration);
+            if ($this->shouldDataFileBeUpdated() || $forceNetworkRequest) {
+                $dataFileOutput = $this->networkManager->fetchConfiguration($timeout);
+                $dataFileJsonRemote = ($dataFileOutput !== null) ? json_decode($dataFileOutput) : null;
+                if (isset($dataFileJsonRemote->featureFlags)) {
+                    file_put_contents($this->configurationFilePath, $dataFileOutput);
+                    $this->applyNewConfiguration($dataFileJsonRemote);
+                } else {
+                    $this->loadDataFileLocal();
+                }
             } else {
-                $configuration = json_decode(file_get_contents($this->configurationFilePath, true));
-                $this->configurations = Configuration::parse($configuration);
+                $this->loadDataFileLocal();
             }
+        } catch (DataFileInvalid $e) {
+            throw new DataFileInvalid("Data file is invalid: " . $e->getMessage());
         } catch (Exception $e) {
-            throw new ConfigurationNotLoaded("Configuration file is not loaded: " . $e->getMessage());
+            error_log(
+                "Saved data file will be used. The file needs to be updated, but an error occurred: " . $e->getMessage()
+            );
+            $this->loadDataFileLocal();
         } finally {
             $this->updateConfigurationFileModificationTime();
         }
@@ -662,83 +479,14 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    private function getUnsentUsers()
-    {
-        return array_keys($this->unsentData);
-    }
-
-    private function getUnsentData($visitorCode)
-    {
-        if (!array_key_exists($visitorCode, $this->unsentData)) {
-            $this->unsentData[$visitorCode] = array();
-        }
-        return $this->unsentData[$visitorCode];
-    }
-
-    private function popUnsentData($visitorCode)
-    {
-        if (array_key_exists($visitorCode, $this->unsentData)) {
-            $data = $this->unsentData[$visitorCode];
-            unset($this->unsentData[$visitorCode]);
-            return $data;
-        }
-        return array();
-    }
-
-    private function getTargetingData($visitorCode)
-    {
-        if (!isset($this->targetingData[$visitorCode])) {
-            $this->targetingData[$visitorCode] = array();
-        }
-        return $this->targetingData[$visitorCode];
-    }
-
     private function validateVisitorCode($visitorCode)
     {
-        if (isset($visitorCode) == false || strlen($visitorCode) == 0) {
-            throw new VisitorCodeNotValid("Visitor code is empty");
+        if (!isset($visitorCode) || empty($visitorCode)) {
+            throw new VisitorCodeInvalid("Visitor code is empty");
         } elseif (strlen($visitorCode) > self::VISITOR_CODE_MAX_LENGTH) {
-            throw new VisitorCodeNotValid("Visitor max length is " . self::VISITOR_CODE_MAX_LENGTH . " characters");
+            throw new VisitorCodeInvalid("Visitor max length is " . self::VISITOR_CODE_MAX_LENGTH . " characters");
         } else {
             return $visitorCode;
-        }
-    }
-
-    private function checkSiteCodeEnable($expOrFF)
-    {
-        if (!$expOrFF->isSiteCodeEnabled) {
-            $siteCode = $this->networkManager->getUrlProvider()->getSiteCode();
-            throw new SiteCodeDisabled("Sitecode '" . $siteCode . "' disabled");
-        }
-    }
-
-    private function checkFeatureIdIsString($featureId)
-    {
-        if (gettype($featureId) != "string") {
-            error_log("Please use `featureId` with type of `string`. This is necessary to support multi-environment feature. Supporting of `int` type will be removed in next releases");
-        }
-    }
-
-    private function addUserAgent(string $visitorCode, UserAgent $userAgent)
-    {
-        $this->userAgentData[$visitorCode] = $userAgent;
-    }
-
-    private function getUserAgent(string $visitorCode): ?UserAgent
-    {
-        if (isset($this->userAgentData[$visitorCode])) {
-            return $this->userAgentData[$visitorCode];
-        } else {
-            return NULL;
-        }
-    }
-
-    private function findFeatureFlag(string $featureKey): FeatureFlag
-    {
-        if (isset($this->configurations->featureFlags[$featureKey])) {
-            return $this->configurations->featureFlags[$featureKey];
-        } else {
-            throw new FeatureConfigurationNotFound("Feature {$featureKey} not found");
         }
     }
 
@@ -749,17 +497,14 @@ class KameleoonClientImpl implements KameleoonClient
             // check if visitor is targeted for rule, else next rule
             if ($this->checkTargeting($visitorCode, $featureFlag->id, $rule)) {
                 // uses for rule exposition
-                $hashRule = $this->obtainHashDoubleRule($visitorCode, $rule->id, $rule->respoolTime);
+                $hashRule = $this->obtainHashDouble($visitorCode, $rule->id, $rule->respoolTime);
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
-                    if (
-                        $rule->type == Rule::TARGETED_DELIVERY &&
-                        count($rule->variationByExposition) > 0
-                    ) {
+                    if ($rule->isTargetedDelivery() && count($rule->variationByExposition) > 0) {
                         return [$rule->variationByExposition[0], $rule];
                     }
                     // uses for variation's expositions
-                    $hashVariation = $this->obtainHashDoubleRule(
+                    $hashVariation = $this->obtainHashDouble(
                         $visitorCode,
                         $rule->experimentId,
                         $rule->respoolTime
@@ -770,7 +515,7 @@ class KameleoonClientImpl implements KameleoonClient
                     if (!is_null($variation)) {
                         return [$variation, $rule];
                     }
-                } elseif ($rule->type == Rule::TARGETED_DELIVERY) {
+                } elseif ($rule->isTargetedDelivery()) {
                     // if visitor is targeted but not bucketed for targeted rule then break cycle -> return default
                     break;
                 }
@@ -791,47 +536,50 @@ class KameleoonClientImpl implements KameleoonClient
         return null;
     }
 
-    private function sendTrackingRequest(
-        string $visitorCode,
-        ?int $experimentId = null,
-        ?int $variationId = null
-    ): void {
-        $userAgent = $this->getUserAgent($visitorCode);
-        $lines = $this->popUnsentData($visitorCode);
-        if (($experimentId !== null) && ($variationId !== null)) {
-            array_push($lines, new ExperimentEvent($experimentId, $variationId));
-        } elseif (count($lines) === 0) {
-            array_push($lines, new ActivityEvent());
-        }
-        $this->networkManager->sendTrackingData($visitorCode, $lines, $userAgent, $this->debugMode);
-    }
-
-    private function calculateVariationForExperiment(string $visitorCode, Experiment $xpConf): ?int
+    private function sendTrackingRequest(string $visitorCode): void
     {
-        $hashDouble = $this->obtainHashDouble($visitorCode, $xpConf->id, $xpConf->variationConfigurations);
-        $total = 0.0;
-        foreach ($xpConf->variationConfigurations as $vid => $variationConfiguration) {
-            $total += $variationConfiguration->deviation;
-            if ($total >= $hashDouble) {
-                return $vid;
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $userAgent = !is_null($visitor) ? $visitor->getUserAgent() : null;
+        $visitorData = iterator_to_array($this->getVisitorData($visitor));
+        // We should send tracking data only if: content isn't required or legal consent is given from a visitor
+        if (empty($visitorData) && $this->isConsentGiven($visitor)) {
+            // Send activity tracking request if no experiment id or variation id
+            $visitorData[] = new ActivityEvent();
+        }
+        if (!empty($visitorData)) {
+            $this->networkManager->sendTrackingData(
+                $visitorCode,
+                $visitorData,
+                $userAgent,
+                $this->clientConfig->getDebugMode()
+            );
+            foreach ($visitorData as $data) {
+                $data->markAsSent();
             }
         }
-        return null;
     }
-}
 
-class ConfigurationParser
-{
-    public static function parse($configurationFilePath)
+    // The method returns visitor's data regarding consent type settings and visitor's legal consent
+    private function getVisitorData(?Visitor $visitor): Generator
     {
-        $configuration = array();
-        try {
-            if (file_exists($configurationFilePath) && is_file($configurationFilePath)) {
-                $config = file_get_contents($configurationFilePath, true);
-                $configuration = json_decode($config, true);
+        // If there is no visitor, then we just return empty collection despite the consent settings
+        if (!is_null($visitor)) {
+            if ($this->isConsentGiven($visitor)) {
+                yield from $visitor->getUnsentData();
+            } else {
+                yield from $visitor->getUnsentConversion();
+                yield from array_filter($visitor->getAssignedVariations(), function ($assignedVariation) {
+                    return !$assignedVariation->isSent() &&
+                        $assignedVariation->getRuleType() === AssignedVariation::RULE_TYPE_TARGETED_DELIVERY;
+                });
             }
-        } catch (Exception $e) {
         }
-        return $configuration;
+    }
+
+    // Retuns true if consent isn't required or visitor gave legal consent
+    private function isConsentGiven(?Visitor $visitor): bool
+    {
+        $isConsentGiven = !$this->dataFile->settings->isConsentRequired();
+        return $isConsentGiven || (!is_null($visitor) && $visitor->getLegalConsent());
     }
 }

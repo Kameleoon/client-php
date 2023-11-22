@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kameleoon\Targeting\Condition;
 
-use Kameleoon\Data\CustomData;
 use Kameleoon\Helpers\StringHelper;
 
 class CustomDatum extends TargetingCondition
@@ -41,16 +40,14 @@ class CustomDatum extends TargetingCondition
         $this->value = $conditionData->value;
     }
 
-    public function check($targetingDatas): bool
+    public function check($data): bool
     {
-        for ($i = count($targetingDatas) - 1; $i >= 0; $i--) {
-            $data = $targetingDatas[$i]->getData();
-            if ($data instanceof CustomData && $data->getId() === $this->index) {
-                return $this->checkTargeting($data->getValues());
-            }
+        if (!is_iterable($data) || !isset($data[$this->index])) {
+            return $this->operator === TargetingOperator::UNDEFINED;
         }
 
-        return $this->operator === TargetingOperator::UNDEFINED;
+        $customData = $data[$this->index];
+        return $this->checkTargeting($customData->getValues());
     }
 
     private function checkTargeting(array $customDataValues): bool

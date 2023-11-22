@@ -37,13 +37,14 @@ class TargetedExperiment extends TargetingCondition
         $this->operator = $conditionData->variationMatchType ?? TargetingOperator::UNKNOWN;
     }
 
-    public function check($variationStorage): bool
+    public function check($assignedVariations): bool
     {
         $targeting = false;
-        $currentExperimentIdExist = isset($variationStorage[$this->experiment]);
+        $variation = $assignedVariations[$this->experiment] ?? null;
+        $currentExperimentIdExist = isset($variation);
         switch ($this->operator) {
             case TargetingOperator::EXACT:
-                $targeting = $currentExperimentIdExist && $variationStorage[$this->experiment] === $this->variation;
+                $targeting = $currentExperimentIdExist && $variation->getVariationId() === $this->variation;
                 break;
             case TargetingOperator::ANY:
                 $targeting = $currentExperimentIdExist;

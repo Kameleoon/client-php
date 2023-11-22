@@ -15,7 +15,17 @@ class PageUrlCondition extends StringValueCondition
 
     public function check($data): bool
     {
-        $pageView = $this->getLastTargetingData($data, "Kameleoon\Data\PageView");
-        return $pageView !== null && $this->checkTargeting($pageView->getUrl());
+        if (is_iterable($data)) {
+            if ($this->operator === TargetingOperator::EXACT) {
+                return !is_null($this->conditionValue) && isset($data[$this->conditionValue]);
+            } else {
+                foreach ($data as $pair) {
+                    if ($this->checkTargeting($pair[0]->getUrl())) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 }

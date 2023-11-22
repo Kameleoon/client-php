@@ -15,14 +15,12 @@ class TargetingObject
         $this->segment = $targetingObject->segment;
     }
 
-    public function getTargetingSegment() {
+    public function getTargetingSegment()
+    {
         if ($this->segment && !$this->targetingSegment) {
-            $this->targetingSegment = new TargetingSegment();
-            $targetingTreeBuilder = new TargetingTreeBuilder();
-            $targetingTree = $targetingTreeBuilder->createTargetingTree($this->segment->conditionsData);
-            $this->targetingSegment->setTargetingTree($targetingTree);
+            $targetingTree = TargetingTreeBuilder::createTargetingTree($this->segment->conditionsData);
+            $this->targetingSegment = new TargetingSegment($targetingTree);
         }
         return $this->targetingSegment;
     }
 }
-?>

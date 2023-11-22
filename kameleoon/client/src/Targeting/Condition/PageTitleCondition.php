@@ -15,7 +15,13 @@ class PageTitleCondition extends StringValueCondition
 
     public function check($data): bool
     {
-        $pageView = $this->getLastTargetingData($data, "Kameleoon\Data\PageView");
-        return $pageView !== null && $this->checkTargeting($pageView->getTitle());
+        if (is_iterable($data)) {
+            foreach ($data as $pageView) {
+                if ($this->checkTargeting($pageView->getTitle())) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

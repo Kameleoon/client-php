@@ -6,5 +6,5 @@ namespace Kameleoon\Hybrid;
 
 interface HybridManager
 {
-    public function getEngineTrackingCode(?array $visitorVariationStorage): string;
+    public function getEngineTrackingCode(?array $variations): string;
 }

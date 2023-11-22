@@ -7,9 +7,6 @@ namespace Kameleoon\Network;
 use Exception;
 use Kameleoon\Helpers\SdkVersion;
 
-require_once dirname(__FILE__) . DIRECTORY_SEPARATOR . ".." . DIRECTORY_SEPARATOR . "Helpers" . DIRECTORY_SEPARATOR
-    . "SdkVersion.php";
-
 class UrlProvider
 {
     const TRACKING_PATH = "/visit/events";
@@ -17,7 +14,7 @@ class UrlProvider
     const EXPERIMENTS_CONFIGURATIONS_PATH = "/visit/experimentsConfigurations";
     const GET_DATA_PATH = "/map/map";
     const POST_DATA_PATH = "/map/maps";
-    const CONFIGURATION_API_URL = "https://client-config.kameleoon.com/mobile";
+    const CONFIGURATION_API_URL_FORMAT = "https://%s.kameleoon.eu/sdk-config";
     const RT_CONFIGURATION_URL = "https://events.kameleoon.com:8110/sse";
 
     public const DEFAULT_DATA_API_URL = "https://data.kameleoon.io";
@@ -70,11 +67,15 @@ class UrlProvider
             } else {
                 $ip = $_SERVER['REMOTE_ADDR'];
             }
+            if ($ip === "") {
+                $ip = "";
+            }
+            $http_user_agent = $_SERVER['HTTP_USER_AGENT'] ?? "";
             return "&" . new QueryBuilder(
                 new QueryParam(QueryParams::DEBUG, "true"),
                 new QueryParam(QueryParams::URL, rawurlencode($currentUrl)),
                 new QueryParam(QueryParams::IP, rawurlencode($ip)),
-                new QueryParam(QueryParams::UA, rawurlencode($_SERVER['HTTP_USER_AGENT'])),
+                new QueryParam(QueryParams::UA, rawurlencode($http_user_agent)),
             );
         } catch (Exception $_) {
             return null;
@@ -105,11 +106,16 @@ class UrlProvider
 
     public function makeConfigurationUrl(?string $environment = null): string
     {
-        $qb = new QueryBuilder(new QueryParam(QueryParams::SITE_CODE, $this->siteCode));
+        $qb = new QueryBuilder();
         if ($environment !== null) {
             $qb->append(new QueryParam(QueryParams::ENVIRONMENT, $environment));
         }
-        return sprintf("%s?%s", self::CONFIGURATION_API_URL, $qb);
+        $url = sprintf(self::CONFIGURATION_API_URL_FORMAT, $this->siteCode);
+        $query = (string)$qb;
+        if (!empty($query)) {
+            $url .= "?$query";
+        }
+        return $url;
     }
 
     public function makeRealTimeUrl(): string

@@ -2,12 +2,12 @@
 
 namespace Kameleoon\Data;
 
-use Kameleoon\KameleoonClientImpl;
 use Kameleoon\Network\QueryBuilder;
 use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
+use Kameleoon\Network\Sendable;
 
-class Browser implements DataInterface
+class Browser extends Sendable implements Data
 {
     public const EVENT_TYPE = "staticData";
 
@@ -28,7 +28,12 @@ class Browser implements DataInterface
     );
     private int $browserType;
     private float $version;
-    private string $nonce;
+
+    public function __construct(int $browserType, float $version = NAN)
+    {
+        $this->browserType = $browserType;
+        $this->version = $version;
+    }
 
     public function getBrowserType(): float
     {
@@ -40,19 +45,12 @@ class Browser implements DataInterface
         return $this->version;
     }
 
-    public function __construct(int $browserType, float $version = NAN)
-    {
-        $this->browserType = $browserType;
-        $this->version = $version;
-        $this->nonce = KameleoonClientImpl::obtainNonce();
-    }
-
-    public function obtainFullPostTextLine(): string
+    public function getQuery(): string
     {
         $qb = new QueryBuilder(
             new QueryParam(QueryParams::EVENT_TYPE, self::EVENT_TYPE),
             new QueryParam(QueryParams::BROWSER_INDEX, (string)$this->browserType),
-            new QueryParam(QueryParams::NONCE, $this->nonce),
+            new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
         if (!is_nan($this->version)) {
             $qb->append(new QueryParam(QueryParams::BROWSER_VERSION, (string)$this->version));

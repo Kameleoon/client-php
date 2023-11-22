@@ -18,8 +18,16 @@ class ConversionCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        $conversion = $this->getLastTargetingData($data, "Kameleoon\Data\Conversion");
-        return $conversion !== null && ($this->goalId === TargetingCondition::NON_EXISTENT_IDENTIFIER
-            || $this->goalId === $conversion->getGoalId());
+        if (is_iterable($data)) {
+            foreach ($data as $conversion) {
+                if (
+                    $this->goalId === TargetingCondition::NON_EXISTENT_IDENTIFIER
+                    || $this->goalId === $conversion->getGoalId()
+                ) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 }

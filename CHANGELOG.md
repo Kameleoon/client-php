@@ -1,6 +1,47 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.0.0 - 2023-11-22
+### Breaking changes
+* Removed all methods and exceptions related to **experiments**:
+    - `triggerExperiment`
+    - `getVariationAssociatedData` (`obtainVariationAssociatedData`)
+    - `getExperimentList`
+    - `getExperimentListForVisitor`
+    - `ExperimentConfigurationNotFound`
+    - `NotTargeted`
+    - `NotAllocated`
+* Removed methods that were deprecated in 3.x versions:
+    - `activateFeature`
+    - `obtainVisitorCode`
+    - `retrieveDataFromRemoteSource`
+* Renamed classes, methods and exceptions:
+    - `getFeatureAllVariables` to [`getFeatureVariationVariables`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getfeaturevariationvariables)
+    - `ConfigurationNotLoaded` to `DataFileInvalid`
+    - `CredentialsNotFound` to `ConfigCredentialsInvalid`
+    - `FeatureConfigurationNotFound` to `FeatureNotFound`
+    - `VariationConfigurationNotFound` to `FeatureVariationNotFound`
+    - `VisitorCodeNotValid` to `VisitorCodeInvalid`
+* Changes in external [configuration](https://developers.kameleoon.com/php-sdk.html#additional-configuration) file:
+    - renamed `actions_configuration_refresh_interval` to `refresh_interval_minute`
+    - renamed `default_timeout` to `default_timeout_millisecond`
+* Added new exception [`SiteCodeIsEmpty`] for method [`KameleoonClientFactory::create`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#create) indicating that the provided sitecode is empty.
+* Added new exception [`FeatureEnvironmentDisabled`] indicating that the feature flag is disabled for certain environments. The following methods can throw the new exception:
+    - [`getFeatureVariationKey`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getfeaturevariationkey)
+    - [`getFeatureVariable`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getfeaturevariable)
+    - [`getFeatureVariationVariables`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getfeaturevariationvariables)
+* A new exception, `DataFileInvalid`, is thrown when the configuration has not been initialized. A missing configuration prevents the SDK from functioning properly. The `DataFileInvalid` exception can be thrown by the following methods:
+    - [`flush`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#flush)
+    - [`trackConversion`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#trackconversion)
+* Removed `topLevelDomain` parameter from [`getVisitorCode`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getvisitorcode). It should be provided with [`KameleoonClientConfig`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#createwithconfig) or via configuration file.
+
+### Features
+* Added **KameleoonClientConfig**, which can be used as parameter during initialization of a client in new method [`KameleoonClientFactory::createWithConfig`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#createwithconfig)
+* Added [`setLegalConsent`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#setlegalconsent) method to determine the types data Kameleoon includes in tracking requests. This helps you adhere to legal and regulatory requirements while responsibly managing visitor data. You can find more information in the [Consent management policy](https://help.kameleoon.com/consent-management-policy/).
+
+### Bug fixes
+* Fixed an issue where using debug mode would result in a "Error: Uncaught TypeError: rawurlencode() expects parameter 1 to be string, null given" error message whenever the `$_SERVER["HTTP_USER_AGENT"]` environment variable wasn't set.
+
 ## 3.3.0 - 2023-09-01
 ### Features
 * Added a method to fetch a visitor's remote data (with an option to add the data to the visitor):

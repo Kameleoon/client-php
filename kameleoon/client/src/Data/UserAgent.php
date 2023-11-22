@@ -1,7 +1,10 @@
 <?php
+
 namespace Kameleoon\Data;
 
-class UserAgent
+use Kameleoon\Data\Data;
+
+class UserAgent implements Data
 {
     private string $value;
 
@@ -10,7 +13,13 @@ class UserAgent
         $this->value = $value;
     }
 
-    public function getValue() {
+    public function getValue(): string
+    {
         return $this->value;
+    }
+
+    public function getQuery(): string
+    {
+        return "";
     }
 }

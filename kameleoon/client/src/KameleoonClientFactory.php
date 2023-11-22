@@ -1,22 +1,40 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kameleoon;
 
+use Kameleoon\Data\Manager\VisitorManagerImpl;
 use Kameleoon\Hybrid\HybridManagerImpl;
-use Kameleoon\Storage\VariationStorageImpl;
 use Kameleoon\Network\NetworkManagerFactoryImpl;
 
 class KameleoonClientFactory
 {
-    private $clients = [];
+    private array $clients = [];
 
-    public static function create($siteCode, $configurationFilePath = "/etc/kameleoon/client-php.json")
-    {
+    public static function create(
+        string $siteCode,
+        ?string $configurationFilePath = "/etc/kameleoon/client-php.json"
+    ) {
+        if (!in_array($siteCode, self::getInstance()->clients)) {
+            $kameleoonConfig = KameleoonClientConfig::readFromFile($configurationFilePath);
+            return KameleoonClientFactory::createWithConfig(
+                $siteCode,
+                $kameleoonConfig
+            );
+        }
+        return self::getInstance()->clients[$siteCode];
+    }
+
+    public static function createWithConfig(
+        string $siteCode,
+        KameleoonClientConfig $kameleoonConfig
+    ) {
         if (!in_array($siteCode, self::getInstance()->clients)) {
             self::getInstance()->clients[$siteCode] = new KameleoonClientImpl(
                 $siteCode,
-                $configurationFilePath,
-                new VariationStorageImpl(),
+                $kameleoonConfig,
+                new VisitorManagerImpl(),
                 new HybridManagerImpl(),
                 new NetworkManagerFactoryImpl()
             );

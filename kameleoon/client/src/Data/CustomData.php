@@ -1,24 +1,23 @@
 <?php
+
 namespace Kameleoon\Data;
 
-use Kameleoon\KameleoonClientImpl;
 use Kameleoon\Network\QueryBuilder;
 use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
+use Kameleoon\Network\Sendable;
 
-class CustomData implements DataInterface
+class CustomData extends Sendable implements Data
 {
     public const EVENT_TYPE = "customData";
 
     private $id;
     private array $values;
-    private $nonce;
 
     public function __construct(int $id, string ...$values)
     {
         $this->id = $id;
         $this->values = $values;
-        $this->nonce = KameleoonClientImpl::obtainNonce();
     }
 
     public function getId()
@@ -31,7 +30,7 @@ class CustomData implements DataInterface
         return $this->values;
     }
 
-    public function obtainFullPostTextLine(): string
+    public function getQuery(): string
     {
         if (count($this->values) === 0) {
             return "";
@@ -47,7 +46,7 @@ class CustomData implements DataInterface
             new QueryParam(QueryParams::INDEX, (string)$this->id),
             new QueryParam(QueryParams::VALUES_COUNT_MAP, $encoded),
             new QueryParam(QueryParams::OVERWRITE, "true"),
-            new QueryParam(QueryParams::NONCE, $this->nonce),
+            new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kameleoon\Targeting\Condition;
 
+use Kameleoon\Data\Device;
+
 class DeviceCondition extends TargetingCondition
 {
     const TYPE = "DEVICE_TYPE";
@@ -18,7 +20,6 @@ class DeviceCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        $device = $this->getLastTargetingData($data, "Kameleoon\Data\Device");
-        return $device !== null && $device->getType() == $this->deviceType;
+        return $data instanceof Device && $data->getType() == $this->deviceType;
     }
 }

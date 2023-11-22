@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
-use Kameleoon\Data\UserAgent;
+use Kameleoon\Helpers\SdkVersion;
 
 class NetworkManagerImpl implements NetworkManager
 {
     public const USER_AGENT_HEADER_NAME = "User-Agent";
+    public const HEADER_SDK_TYPE = "X-Kameleoon-SDK-Type";
+    public const HEADER_SDK_VERSION = "X-Kameleoon-SDK-Version";
 
     private UrlProvider $urlProvider;
     private ?string $environment;
@@ -66,7 +68,11 @@ class NetworkManagerImpl implements NetworkManager
     public function fetchConfiguration(?int $timeout = null): ?string
     {
         $url = $this->urlProvider->makeConfigurationUrl($this->environment);
-        $request = new GetRequest($url, null, $this->getTimeout($timeout), ResponseContentType::TEXT);
+        $headers = [
+            self::HEADER_SDK_TYPE => SdkVersion::SDK_NAME,
+            self::HEADER_SDK_VERSION => SdkVersion::getVersion()
+        ];
+        $request = new GetRequest($url, $headers, $this->getTimeout($timeout), ResponseContentType::TEXT);
         return $this->makeGetCall($request);
     }
 
@@ -84,7 +90,7 @@ class NetworkManagerImpl implements NetworkManager
         return $this->makeGetCall($request);
     }
 
-    public function sendTrackingData(string $visitorCode, array $lines, ?UserAgent $userAgent, bool $debug): void
+    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $debug): void
     {
         $url = $this->urlProvider->makeTrackingUrl($visitorCode);
         if ($debug) {
@@ -94,21 +100,18 @@ class NetworkManagerImpl implements NetworkManager
             }
         }
         $data = $this->formTrackingCallData($lines);
-        $headers = ($userAgent !== null) ? [self::USER_AGENT_HEADER_NAME => $userAgent->getValue()] : null;
+        $headers = ($userAgent !== null) ? [self::USER_AGENT_HEADER_NAME => $userAgent] : null;
         $request = new PostRequest($url, $headers, $data);
         $this->netProvider->post($request);
     }
-    private function formTrackingCallData(array $lines): string
+    private function formTrackingCallData(iterable $lines): string
     {
         $data = "";
         foreach ($lines as $line) {
-            $textLine = $line->obtainFullPostTextLine();
-            if ($textLine != null) {
-                if (!empty($data)) {
-                    $data .= "\n";
-                }
-                $data .= $textLine;
+            if (!empty($data)) {
+                $data .= "\n";
             }
+            $data .= $line->getQuery();
         }
         return $data;
     }

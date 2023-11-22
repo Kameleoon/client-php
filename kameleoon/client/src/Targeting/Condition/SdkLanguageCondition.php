@@ -64,7 +64,7 @@ class SdkLanguageCondition extends TargetingCondition
                     || ($majorSdk === $majorCondition && $minorSdk < $minorCondition)
                     || ($majorSdk === $majorCondition && $minorSdk === $minorCondition && $patchSdk < $patchCondition);
             default:
-                echo "Unexpected comparing operation for SdkLanguage condition: " . $this->operator . PHP_EOL;
+                error_log("Unexpected comparing operation for SdkLanguage condition: " . $this->operator . PHP_EOL);
                 return false;
         }
     }

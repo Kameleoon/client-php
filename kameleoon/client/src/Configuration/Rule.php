@@ -4,8 +4,8 @@ namespace Kameleoon\Configuration;
 
 class Rule extends TargetingObject
 {
-    public const EXPERIMENTATION = "EXPERIMENTATION";
-    public const TARGETED_DELIVERY = "TARGETED_DELIVERY";
+    private const EXPERIMENTATION = "EXPERIMENTATION";
+    private const TARGETED_DELIVERY = "TARGETED_DELIVERY";
 
     public $order;
     public $id;
@@ -14,7 +14,6 @@ class Rule extends TargetingObject
     public $experimentId;
     public ?int $respoolTime;
     public $variationByExposition;
-    private $targetingSegment;
 
     public function __construct($rule)
     {
@@ -38,5 +37,14 @@ class Rule extends TargetingObject
         }, ARRAY_FILTER_USE_BOTH);
         $variation = array_pop($arrayVariation);
         return !is_null($variation) ? $variation->variationId : null;
+    }
+
+    public function isTargetedDelivery(): bool
+    {
+        return $this->type === Rule::TARGETED_DELIVERY;
+    }
+    public function isExperiment(): bool
+    {
+        return $this->type === Rule::EXPERIMENTATION;
     }
 }

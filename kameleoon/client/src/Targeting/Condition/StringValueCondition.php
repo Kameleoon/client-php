@@ -6,8 +6,8 @@ namespace Kameleoon\Targeting\Condition;
 
 class StringValueCondition extends TargetingCondition
 {
-    private ?string $conditionValue;
-    private string $operator;
+    protected string $conditionValue;
+    protected string $operator;
 
     public function __construct($conditionData, $value)
     {
@@ -41,7 +41,7 @@ class StringValueCondition extends TargetingCondition
                 return (bool)(preg_match($pattern, $value));
 
             default:
-                echo "Unexpected comparing operation for " . $this->getType() . " condition: " . $this->operator;
+                error_log("Unexpected comparing operation for " . $this->getType() . " condition: " . $this->operator);
                 return false;
         }
     }

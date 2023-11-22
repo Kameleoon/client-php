@@ -38,8 +38,12 @@ class NetProviderImpl implements NetProvider
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
         curl_setopt($ch, CURLOPT_URL, $request->url);
         curl_setopt($ch, CURLOPT_TIMEOUT_MS, $request->timeout);
-        if ($request->headers != null) {
-            curl_setopt($ch, CURLOPT_HTTPHEADER, $request->headers);
+        if (!empty($request->headers)) {
+            $headers = [];
+            foreach ($request->headers as $headerName => $headerValue) {
+                $headers[] = sprintf("%s: %s", $headerName, $headerValue);
+            }
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
         if ($request->responseContentType !== ResponseContentType::NONE) {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

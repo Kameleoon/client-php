@@ -7,7 +7,7 @@ use Iterator;
 class TargetingTreeBuilder
 {
     /** Built from targeting segment builder parameter map. */
-    public function createTargetingTree($conditions)
+    public static function createTargetingTree($conditions)
     {
         if ($conditions == null) {
             return null;
@@ -37,10 +37,10 @@ class TargetingTreeBuilder
             $firstLevelOrOperatorsIterator = null;
         }
 
-        return $this->createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator);
+        return TargetingTreeBuilder::createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator);
     }
 
-    private function createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator)
+    private static function createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator)
     {
         if ($firstLevelIterator->hasNext()) {
             $leftFirstLevelMap = $firstLevelIterator->nextObject();
@@ -59,7 +59,10 @@ class TargetingTreeBuilder
                     array_push($orOperators, $jArrayOrOperators[$j]);
                 }
             }
-            $leftChild = $this->createTargetingTreeSecondLevel(new KIterator($orOperators), new KIterator($conditions));
+            $leftChild = TargetingTreeBuilder::createTargetingTreeSecondLevel(
+                new KIterator($orOperators),
+                new KIterator($conditions)
+            );
 
             if ($firstLevelIterator->hasNext()) {
                 $orOperator = $firstLevelOrOperatorsIterator->nextObject();
@@ -67,7 +70,10 @@ class TargetingTreeBuilder
                     return new TargetingTree(
                         $orOperator,
                         $leftChild,
-                        $this->createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator),
+                        TargetingTreeBuilder::createTargetingTreeFirstLevel(
+                            $firstLevelOrOperatorsIterator,
+                            $firstLevelIterator
+                        ),
                         null
                     );
                 }
@@ -88,7 +94,7 @@ class TargetingTreeBuilder
                         array_push($rightOrOperators, $jArrayRightOrOperators[$p]);
                     }
                 }
-                $rightChild = $this->createTargetingTreeSecondLevel(
+                $rightChild = TargetingTreeBuilder::createTargetingTreeSecondLevel(
                     new KIterator($rightOrOperators),
                     new KIterator($rightConditions)
                 );
@@ -97,7 +103,10 @@ class TargetingTreeBuilder
                     return new TargetingTree(
                         $firstLevelOrOperatorsIterator->nextObject(),
                         $leftAndRightChildren,
-                        $this->createTargetingTreeFirstLevel($firstLevelOrOperatorsIterator, $firstLevelIterator),
+                        TargetingTreeBuilder::createTargetingTreeFirstLevel(
+                            $firstLevelOrOperatorsIterator,
+                            $firstLevelIterator
+                        ),
                         null
                     );
                 }
@@ -108,8 +117,10 @@ class TargetingTreeBuilder
         return null;
     }
 
-    private function createTargetingTreeSecondLevel($secondLevelOrOperatorsIterator, $secondLevelConditionsIterator)
-    {
+    private static function createTargetingTreeSecondLevel(
+        $secondLevelOrOperatorsIterator,
+        $secondLevelConditionsIterator
+    ) {
         if ($secondLevelConditionsIterator->hasNext()) {
             $leftChild = new TargetingTree();
             $condition = $secondLevelConditionsIterator->nextObject();
@@ -122,7 +133,7 @@ class TargetingTreeBuilder
                     return new TargetingTree(
                         $orOperator,
                         $leftChild,
-                        $this->createTargetingTreeSecondLevel(
+                        TargetingTreeBuilder::createTargetingTreeSecondLevel(
                             $secondLevelOrOperatorsIterator,
                             $secondLevelConditionsIterator
                         ),
@@ -140,7 +151,7 @@ class TargetingTreeBuilder
                     return new TargetingTree(
                         $secondLevelOrOperatorsIterator->nextObject(),
                         $leftAndRightChildren,
-                        $this->createTargetingTreeSecondLevel(
+                        TargetingTreeBuilder::createTargetingTreeSecondLevel(
                             $secondLevelOrOperatorsIterator,
                             $secondLevelConditionsIterator
                         ),
