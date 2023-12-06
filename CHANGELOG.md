@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.0.1 - 2023-12-06
+### Bug fixes
+* Stability and performance improvements
+
 ## 4.0.0 - 2023-11-22
 ### Breaking changes
 * Removed all methods and exceptions related to **experiments**:

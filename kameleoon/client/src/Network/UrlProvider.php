@@ -14,7 +14,7 @@ class UrlProvider
     const EXPERIMENTS_CONFIGURATIONS_PATH = "/visit/experimentsConfigurations";
     const GET_DATA_PATH = "/map/map";
     const POST_DATA_PATH = "/map/maps";
-    const CONFIGURATION_API_URL_FORMAT = "https://%s.kameleoon.eu/sdk-config";
+    const CONFIGURATION_API_URL_FORMAT = "https://sdk-config.kameleoon.eu/%s";
     const RT_CONFIGURATION_URL = "https://events.kameleoon.com:8110/sse";
 
     public const DEFAULT_DATA_API_URL = "https://data.kameleoon.io";
