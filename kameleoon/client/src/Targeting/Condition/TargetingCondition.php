@@ -30,10 +30,10 @@ abstract class TargetingCondition
         return $this->include;
     }
 
-    protected function getLastTargetingData($data, $className)
+    protected function getLastTargetingData($targetingData, $className)
     {
-        for ($i = count($data) - 1; $i >= 0; $i--) {
-            $data = $data[$i]->getData();
+        for ($i = count($targetingData) - 1; $i >= 0; $i--) {
+            $data = $targetingData[$i]->getData();
             if (get_class($data) === $className) {
                 return $data;
             }
