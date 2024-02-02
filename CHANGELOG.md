@@ -46,6 +46,10 @@ All notable changes to this project will be documented in this file.
 ### Bug fixes
 * Fixed an issue where using debug mode would result in a "Error: Uncaught TypeError: rawurlencode() expects parameter 1 to be string, null given" error message whenever the `$_SERVER["HTTP_USER_AGENT"]` environment variable wasn't set.
 
+## 3.3.1 - 2024-02-02
+### Bug fixes
+* Fixed an issue where evaluating some targeting conditions would result in a exception.
+
 ## 3.3.0 - 2023-09-01
 ### Features
 * Added a method to fetch a visitor's remote data (with an option to add the data to the visitor):
