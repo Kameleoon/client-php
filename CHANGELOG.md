@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.1.0 - 2024-02-22
+### Features
+* Added support for additional Data API servers across the world for even faster network requests.
+* Increased limit for requests to Data API: [rate limits](https://developers.kameleoon.com/apis/data-api-rest/overview/#rate-limits)
+* Added [`getVisitorWarehouseAudience`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getvisitorwarehouseaudience) method to retrieve all data associated with a visitor's warehouse audiences and adds it to the visitor.
+
 ## 4.0.1 - 2023-12-06
 ### Bug fixes
 * Stability and performance improvements

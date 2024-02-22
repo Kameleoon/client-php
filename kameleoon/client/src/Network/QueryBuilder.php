@@ -82,6 +82,9 @@ class QueryParams
     public const VARIATION_ID = "variationId";
     public const VERSION = "version";
     public const VISITOR_CODE = "visitorCode";
+    public const GRANT_TYPE = "grant_type";
+    public const CLIENT_ID = "client_id";
+    public const CLIENT_SECRET = "client_secret";
 
     public const DEBUG = "debug";
     public const URL = "url";

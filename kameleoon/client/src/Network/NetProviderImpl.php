@@ -7,8 +7,6 @@ namespace Kameleoon\Network;
 use Kameleoon\Network\NetProvider;
 use Kameleoon\Network\Response;
 use Kameleoon\Network\ResponseContentType;
-use Kameleoon\Network\GetRequest;
-use Kameleoon\Network\PostRequest;
 use Exception;
 
 class NetProviderImpl implements NetProvider
@@ -32,10 +30,10 @@ class NetProviderImpl implements NetProvider
         }
     }
 
-    public function get(GetRequest $request): Response
+    public function callSync(SyncRequest $request): Response
     {
         $ch = curl_init($request->url);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->httpMethod);
         curl_setopt($ch, CURLOPT_URL, $request->url);
         curl_setopt($ch, CURLOPT_TIMEOUT_MS, $request->timeout);
         if (!empty($request->headers)) {
@@ -47,6 +45,9 @@ class NetProviderImpl implements NetProvider
         }
         if ($request->responseContentType !== ResponseContentType::NONE) {
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        }
+        if (!is_null($request->body)) {
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $request->body);
         }
         $body = curl_exec($ch);
         $err = curl_error($ch);
@@ -65,7 +66,7 @@ class NetProviderImpl implements NetProvider
         return $response;
     }
 
-    public function post(PostRequest $request): string
+    public function callAsync(AsyncRequest $request): string
     {
         $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST";
         if ($request->headers !== null) {
@@ -74,8 +75,8 @@ class NetProviderImpl implements NetProvider
             }
         }
         $requestText .= sprintf(' "%s"', $request->url);
-        if ($request->data !== null) {
-            $requestText .= sprintf(' -d "%s"', $request->data);
+        if ($request->body !== null) {
+            $requestText .= sprintf(' -d "%s"', $request->body);
         }
         $requestText .= ' & r=${r:=0};((r=r+1));if [ $r -eq 64 ];then r=0;wait;fi;' . PHP_EOL;
         $path = $this->getRequestsFilePath();

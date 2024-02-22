@@ -29,15 +29,4 @@ abstract class TargetingCondition
     {
         return $this->include;
     }
-
-    protected function getLastTargetingData($data, $className)
-    {
-        for ($i = count($data) - 1; $i >= 0; $i--) {
-            $data = $data[$i]->getData();
-            if (get_class($data) === $className) {
-                return $data;
-            }
-        }
-        return null;
-    }
 }

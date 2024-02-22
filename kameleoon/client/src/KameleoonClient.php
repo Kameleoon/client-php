@@ -2,6 +2,8 @@
 
 namespace Kameleoon;
 
+use Kameleoon\Data\CustomData;
+
 interface KameleoonClient
 {
     public function getVisitorCode(?string $defaultVisitorCode = null, ?int $timeout = null);
@@ -63,4 +65,33 @@ interface KameleoonClient
      *                            than 255 characters)
      */
     public function setLegalConsent(string $visitorCode, bool $legalConsent): void;
+
+
+    /**
+     * Retrieves data associated with a visitor's warehouse audiences and adds it to the visitor.
+     *
+     * Retrieves all audience data associated with the visitor in your data warehouse using the
+     * specified `$visitorCode` and `$warehouseKey`. The `$warehouseKey` is typically your internal user
+     * ID. The `$customDataIndex` parameter corresponds to the Kameleoon custom data that Kameleoon uses
+     * to target your visitors. You can refer to the warehouse targeting documentation for additional details.
+     * The method returns a CustomData object, confirming that the data has been added to the visitor
+     * and is available for targeting purposes.
+     *
+     * @param string $visitorCode The unique identifier of the visitor for whom you want to retrieve and add the data.
+     * @param int $customDataIndex An integer representing the index of the custom data you want to use to target your
+     * BigQuery Audiences.
+     * @param ?string $warehouseKey The key to identify the warehouse data, typically your internal user ID.
+     * The value is optional.
+     * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
+     * result. This field is optional.
+     * @return ?CustomData CustomData is not null in case if it was sucessfully added to the visitor. Otherwise, null.
+     * @throws Exception\VisitorCodeInvalid Throws when the provided visitor code is not valid (empty, or longer
+     *                            than 255 characters)
+     */
+    public function getVisitorWarehouseAudience(
+        string $visitorCode,
+        int $customDataIndex,
+        ?string $warehouseKey = null,
+        ?int $timeout = null
+    ): ?CustomData;
 }

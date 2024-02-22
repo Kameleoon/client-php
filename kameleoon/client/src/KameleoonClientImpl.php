@@ -4,8 +4,6 @@ namespace Kameleoon;
 
 use Exception;
 use Generator;
-use Kameleoon\Exception\VisitorCodeInvalid;
-
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\ExclusiveExperiment;
 use Kameleoon\Targeting\Condition\TargetedExperiment;
@@ -34,9 +32,15 @@ use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureVariableNotFound;
 use Kameleoon\Exception\FeatureVariationNotFound;
 use Kameleoon\Exception\SiteCodeIsEmpty;
+use Kameleoon\Helpers\HashDouble;
 use Kameleoon\Helpers\SdkVersion;
-use Kameleoon\Hybrid\HybridManager;
-use Kameleoon\Hybrid\HybridManagerImpl;
+use Kameleoon\Helpers\VisitorCodeManager;
+use Kameleoon\Managers\Hybrid\HybridManager;
+use Kameleoon\Managers\Hybrid\HybridManagerImpl;
+use Kameleoon\Managers\Warehouse\WarehouseManager;
+use Kameleoon\Managers\Warehouse\WarehouseManagerImpl;
+use Kameleoon\Network\AccessToken\AccessTokenSourceFactoryImpl;
+use Kameleoon\Network\AccessTokenSourceImpl;
 use Kameleoon\Network\ActivityEvent;
 use Kameleoon\Network\Cookie\CookieManager;
 use Kameleoon\Network\Cookie\CookieManagerImpl;
@@ -55,15 +59,15 @@ class KameleoonClientImpl implements KameleoonClient
     private string $visitorCode;
 
     private VisitorManager $visitorManager;
-    private HybridManager $hybridManager;
     private NetworkManager $networkManager;
     private CookieManager $cookieManager;
+    private HybridManager $hybridManager;
+    private WarehouseManager $warehouseManager;
 
     public function __construct(
         string $siteCode,
         KameleoonClientConfig $clientConfig,
         ?VisitorManager $visitorManager = null,
-        ?HybridManager $hybridManager = null,
         ?NetworkManagerFactory $networkManagerFactory = null
     ) {
         if (empty($siteCode)) {
@@ -71,7 +75,6 @@ class KameleoonClientImpl implements KameleoonClient
         }
 
         $this->visitorManager = $visitorManager ?? new VisitorManagerImpl();
-        $this->hybridManager = $hybridManager ?? new HybridManagerImpl();
         $this->cookieManager = new CookieManagerImpl($clientConfig->getCookieOptions());
 
         $this->clientConfig = $clientConfig;
@@ -88,7 +91,12 @@ class KameleoonClientImpl implements KameleoonClient
             $siteCode,
             $this->clientConfig->getEnvironment(),
             $this->clientConfig->getDefaultTimeoutMillisecond(),
-            $kameleoonWorkDir
+            $kameleoonWorkDir,
+            new AccessTokenSourceFactoryImpl(
+                $this->clientConfig->getClientId(),
+                $this->clientConfig->getClientSecret(),
+                $kameleoonWorkDir
+            )
         );
     }
 
@@ -100,7 +108,7 @@ class KameleoonClientImpl implements KameleoonClient
     {
         if (!isset($this->visitorCode)) {
             if ($defaultVisitorCode !== null) {
-                $this->validateVisitorCode($defaultVisitorCode);
+                VisitorCodeManager::validateVisitorCode($defaultVisitorCode);
             }
             $this->loadConfiguration($timeout);
             $this->visitorCode = $this->cookieManager->getOrAdd($defaultVisitorCode);
@@ -110,7 +118,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function addData($visitorCode, ...$data)
     {
-        $this->validateVisitorCode($visitorCode);
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->visitorManager->getOrCreateVisitor($visitorCode)->addData(...$data);
     }
 
@@ -118,7 +126,7 @@ class KameleoonClientImpl implements KameleoonClient
     {
         $this->loadConfiguration($timeout);
         if ($visitorCode !== null) {
-            $this->validateVisitorCode($visitorCode);
+            VisitorCodeManager::validateVisitorCode($visitorCode);
             $this->sendTrackingRequest($visitorCode);
         } else {
             foreach ($this->visitorManager as $user) {
@@ -129,7 +137,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null)
     {
-        $this->addData($this->validateVisitorCode($visitorCode), new Data\Conversion($goalID));
+        $this->addData($visitorCode, new Data\Conversion($goalID));
         $this->flush($visitorCode, $timeout);
     }
 
@@ -182,15 +190,15 @@ class KameleoonClientImpl implements KameleoonClient
     public function getFeatureList(?int $timeout = null): array
     {
         $this->loadConfiguration($timeout);
-        return array_keys($this->dataFile->featureFlags);
+        return array_keys($this->dataFile->getFeatureFlags());
     }
 
     public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array
     {
-        $this->validateVisitorCode($visitorCode);
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         $arrayKeys = array();
         $this->loadConfiguration($timeout);
-        foreach ($this->dataFile->featureFlags as $featureFlag) {
+        foreach ($this->dataFile->getFeatureFlags() as $featureFlag) {
             [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
             $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
             if ($variationKey != Variation::VARIATION_OFF) {
@@ -203,6 +211,9 @@ class KameleoonClientImpl implements KameleoonClient
     public function getEngineTrackingCode(string $visitorCode): string
     {
         $visitor = $this->visitorManager->getVisitor($visitorCode);
+        if (!isset($this->hybridManager)) {
+            $this->hybridManager = new HybridManagerImpl();
+        }
         return $this->hybridManager->getEngineTrackingCode(
             !is_null($visitor) ? $visitor->getAssignedVariations() : null
         );
@@ -267,7 +278,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function setLegalConsent(string $visitorCode, bool $legalConsent): void
     {
-        $this->validateVisitorCode($visitorCode);
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->visitorManager->getOrCreateVisitor($visitorCode)->setLegalConsent($legalConsent);
         $this->cookieManager->update($visitorCode, $legalConsent);
     }
@@ -282,7 +293,7 @@ class KameleoonClientImpl implements KameleoonClient
         ?int $timeout = null
     ): array {
         $this->loadConfiguration($timeout);
-        $this->validateVisitorCode($visitorCode);
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         $featureFlag = $this->dataFile->getFeatureFlag($featureKey);
         [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
         $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
@@ -421,18 +432,14 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    private function obtainHashDouble(string $visitorCode, int $containerID, ?int $respoolTime = null)
-    {
-        $suffix = !is_null($respoolTime) ? (string) $respoolTime : '';
-        return floatval(intval(substr(hash("sha256", $visitorCode . $containerID . $suffix), 0, 8), 16) / pow(2, 32));
-    }
-
     private function applyNewConfiguration($dataFileJson)
     {
         $this->dataFile = new DataFile($dataFileJson, $this->clientConfig->getEnvironment());
-        $consentRequired = $this->dataFile->settings->isConsentRequired()
+        $settings = $this->dataFile->getSettings();
+        $consentRequired = $settings->isConsentRequired()
             && !$this->dataFile->hasAnyTargetedDeliveryRule();
         $this->cookieManager->setConsentRequired($consentRequired);
+        $this->networkManager->getUrlProvider()->applyDataApiDomain($settings->getDataApiDomain());
     }
 
     private function loadDataFileLocal()
@@ -479,17 +486,6 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    private function validateVisitorCode($visitorCode)
-    {
-        if (!isset($visitorCode) || empty($visitorCode)) {
-            throw new VisitorCodeInvalid("Visitor code is empty");
-        } elseif (strlen($visitorCode) > self::VISITOR_CODE_MAX_LENGTH) {
-            throw new VisitorCodeInvalid("Visitor max length is " . self::VISITOR_CODE_MAX_LENGTH . " characters");
-        } else {
-            return $visitorCode;
-        }
-    }
-
     private function calculateVariationKeyForFeature(string $visitorCode, FeatureFlag $featureFlag): array
     {
         // no rules -> return defaultVariationKey
@@ -497,18 +493,14 @@ class KameleoonClientImpl implements KameleoonClient
             // check if visitor is targeted for rule, else next rule
             if ($this->checkTargeting($visitorCode, $featureFlag->id, $rule)) {
                 // uses for rule exposition
-                $hashRule = $this->obtainHashDouble($visitorCode, $rule->id, $rule->respoolTime);
+                $hashRule = HashDouble::obtain($visitorCode, $rule->id, $rule->respoolTime);
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
                     if ($rule->isTargetedDelivery() && count($rule->variationByExposition) > 0) {
                         return [$rule->variationByExposition[0], $rule];
                     }
                     // uses for variation's expositions
-                    $hashVariation = $this->obtainHashDouble(
-                        $visitorCode,
-                        $rule->experimentId,
-                        $rule->respoolTime
-                    );
+                    $hashVariation = HashDouble::obtain($visitorCode, $rule->experimentId, $rule->respoolTime);
                     // get variation key with new hashVariation
                     $variation = $this->calculateVariatonRuleHash($rule, $hashVariation);
                     // variation can be null for experiment rules only, for targeted rule will be always exist
@@ -579,7 +571,24 @@ class KameleoonClientImpl implements KameleoonClient
     // Retuns true if consent isn't required or visitor gave legal consent
     private function isConsentGiven(?Visitor $visitor): bool
     {
-        $isConsentGiven = !$this->dataFile->settings->isConsentRequired();
+        $isConsentGiven = !$this->dataFile->getSettings()->isConsentRequired();
         return $isConsentGiven || (!is_null($visitor) && $visitor->getLegalConsent());
+    }
+
+    public function getVisitorWarehouseAudience(
+        string $visitorCode,
+        int $customDataIndex,
+        ?string $warehouseKey = null,
+        ?int $timeout = null
+    ): ?CustomData {
+        if (!isset($this->warehouseManager)) {
+            $this->warehouseManager = new WarehouseManagerImpl($this->networkManager, $this->visitorManager);
+        }
+        return $this->warehouseManager->getVisitorWarehouseAudience(
+            $visitorCode,
+            $customDataIndex,
+            $warehouseKey,
+            $timeout
+        );
     }
 }

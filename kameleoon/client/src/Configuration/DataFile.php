@@ -10,8 +10,8 @@ use Kameleoon\Exception\FeatureNotFound;
 
 class DataFile
 {
-    public array $featureFlags;
-    public Settings $settings;
+    private array $featureFlags;
+    private Settings $settings;
     private ?string $environment;
 
     private bool $isLoaded = false;
@@ -31,6 +31,16 @@ class DataFile
     public function isLoaded()
     {
         return $this->isLoaded;
+    }
+
+    public function getFeatureFlags(): array
+    {
+        return $this->featureFlags;
+    }
+
+    public function getSettings(): Settings
+    {
+        return $this->settings;
     }
 
     private static function createFromJSON($json, $key, $class): array

@@ -5,6 +5,7 @@ namespace Kameleoon\Network\Cookie;
 use Kameleoon\CookieOptions;
 use Kameleoon\Exception\ConfigException;
 use Kameleoon\Helpers\RandomString;
+use Kameleoon\Helpers\VisitorCodeManager;
 
 class CookieManagerImpl implements CookieManager
 {
@@ -34,7 +35,7 @@ class CookieManagerImpl implements CookieManager
         $visitorCode = $this->getFromCookie() ?? $visitorCode;
 
         if ($visitorCode === null) {
-            $visitorCode = RandomString::generateVisitorCode();
+            $visitorCode = VisitorCodeManager::generateVisitorCode();
         }
 
         if ($this->cookieOptions->getTopLevelDomain() === null) {

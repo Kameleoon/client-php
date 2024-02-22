@@ -9,26 +9,28 @@ use Kameleoon\Helpers\SdkVersion;
 
 class UrlProvider
 {
-    const TRACKING_PATH = "/visit/events";
-    const VISITOR_DATA_PATH = "/visit/visitor";
-    const EXPERIMENTS_CONFIGURATIONS_PATH = "/visit/experimentsConfigurations";
-    const GET_DATA_PATH = "/map/map";
-    const POST_DATA_PATH = "/map/maps";
     const CONFIGURATION_API_URL_FORMAT = "https://sdk-config.kameleoon.eu/%s";
     const RT_CONFIGURATION_URL = "https://events.kameleoon.com:8110/sse";
 
-    public const DEFAULT_DATA_API_URL = "https://data.kameleoon.io";
-    public const TEST_DATA_API_URL = "https://data.kameleoon.net";
+    public const DEFAULT_DATA_API_DOMAIN = "data.kameleoon.io";
+    public const TEST_DATA_API_DOMAIN = "data.kameleoon.net";
+    const TRACKING_PATH = "/visit/events";
+    const VISITOR_DATA_PATH = "/visit/visitor";
+    const GET_DATA_PATH = "/map/map";
+    const POST_DATA_PATH = "/map/maps";
+
+    const AUTOMATION_API_URL = "https://api.kameleoon.com";
+    public const ACCESS_TOKEN_PATH = "/oauth/token";
 
     private string $siteCode;
-    private string $dataApiUrl;
+    private string $dataApiDomain;
     private string $postQueryBase;
 
-    public function __construct(string $siteCode, string $dataApiUrl)
+    public function __construct(string $siteCode, string $dataApiDomain)
     {
         $this->siteCode = $siteCode;
-        $this->dataApiUrl = $dataApiUrl;
-        $this->postQueryBase = $this->makePostQueryBase();
+        $this->dataApiDomain = $dataApiDomain;
+        $this->postQueryBase = $this->makeTrackingQueryBase();
     }
 
     public function getSiteCode(): string
@@ -36,12 +38,19 @@ class UrlProvider
         return $this->siteCode;
     }
 
-    public function getDataApiUrl(): string
+    public function getDataApiDomain(): string
     {
-        return $this->dataApiUrl;
+        return $this->dataApiDomain;
     }
 
-    private function makePostQueryBase(): string
+    public function applyDataApiDomain(?string $dataApiDomain): void
+    {
+        if ($dataApiDomain !== null) {
+            $this->dataApiDomain = $dataApiDomain;
+        }
+    }
+
+    private function makeTrackingQueryBase(): string
     {
         return (string)new QueryBuilder(
             new QueryParam(QueryParams::SDK_NAME, SdkVersion::getName()),
@@ -53,7 +62,7 @@ class UrlProvider
     public function makeTrackingUrl(string $visitorCode): string
     {
         $qp = new QueryParam(QueryParams::VISITOR_CODE, $visitorCode);
-        return sprintf("%s%s?%s&%s", $this->dataApiUrl, self::TRACKING_PATH, $this->postQueryBase, $qp);
+        return sprintf("https://%s%s?%s&%s", $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase, $qp);
     }
 
     public function makeExperimentRegisterDebugParams(): ?string
@@ -92,7 +101,7 @@ class UrlProvider
             new QueryParam(QueryParams::CUSTOM_DATA, "true"),
             new QueryParam(QueryParams::VERSION, "0"),
         );
-        return sprintf("%s%s?%s", $this->dataApiUrl, self::VISITOR_DATA_PATH, $qb);
+        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
     }
 
     public function makeApiDataGetRequestUrl(string $key): string
@@ -101,7 +110,7 @@ class UrlProvider
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
             new QueryParam(QueryParams::KEY, $key),
         );
-        return sprintf("%s%s?%s", $this->dataApiUrl, self::GET_DATA_PATH, $qb);
+        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::GET_DATA_PATH, $qb);
     }
 
     public function makeConfigurationUrl(?string $environment = null): string
@@ -122,5 +131,10 @@ class UrlProvider
     {
         $qp = new QueryParam(QueryParams::SITE_CODE, $this->siteCode);
         return sprintf("%s?%s", self::RT_CONFIGURATION_URL, $qp);
+    }
+
+    public function makeAccessTokenUrl(): string
+    {
+        return sprintf("%s%s", UrlProvider::AUTOMATION_API_URL, UrlProvider::ACCESS_TOKEN_PATH);
     }
 }

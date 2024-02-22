@@ -6,8 +6,9 @@ namespace Kameleoon\Network;
 
 interface NetProvider
 {
-    public function get(GetRequest $request): Response;
-    public function post(PostRequest $request): string;
+    public function callSync(SyncRequest $request): Response;
+    // There is no async request in PHP SDK. This type of requests will be be performed with background daemon.
+    public function callAsync(AsyncRequest $request): string;
 }
 
 final class ResponseContentType
@@ -33,36 +34,55 @@ class Response
 
 abstract class Request
 {
+    const GET = "GET";
+    const POST = "POST";
+
+    public string $httpMethod;
     public string $url;
     public ?array $headers;
+    public ?string $body;
+    public bool $isJwtRequired;
 
-    public function __construct(string $url, ?array $headers)
-    {
+    public function __construct(
+        string $httpMethod,
+        string $url,
+        ?array $headers,
+        bool $isJwtRequired = false,
+        ?string $body = null
+    ) {
+        $this->httpMethod = $httpMethod;
         $this->url = $url;
         $this->headers = $headers;
+        $this->body = $body;
+        $this->isJwtRequired = $isJwtRequired;
     }
 }
 
-class GetRequest extends Request
+class SyncRequest extends Request
 {
-    public int $timeout;
+    public ?int $timeout;
     public int $responseContentType;
 
-    public function __construct(string $url, ?array $headers, int $timeout, int $responseContentType)
-    {
-        parent::__construct($url, $headers);
+    public function __construct(
+        string $httpMethod,
+        string $url,
+        ?array $headers,
+        ?int $timeout,
+        int $responseContentType,
+        bool $isJwtRequired = false,
+        ?string $body = null
+    ) {
+        parent::__construct($httpMethod, $url, $headers, $isJwtRequired, $body);
         $this->timeout = $timeout;
         $this->responseContentType = $responseContentType;
     }
 }
 
-class PostRequest extends Request
+// There is no async request in PHP SDK. This type of requests will be be performed with background daemon.
+class AsyncRequest extends Request
 {
-    public string $data;
-
-    public function __construct(string $url, ?array $headers, string $data)
+    public function __construct(string $url, ?array $headers, string $body, bool $isJwtRequired = false)
     {
-        parent::__construct($url, $headers);
-        $this->data = $data;
+        parent::__construct(Request::POST, $url, $headers, $isJwtRequired, $body);
     }
 }

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kameleoon\Hybrid;
+namespace Kameleoon\Managers\Hybrid;
 
 class HybridManagerImpl implements HybridManager
 {

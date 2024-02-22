@@ -35,7 +35,6 @@ class KameleoonClientFactory
                 $siteCode,
                 $kameleoonConfig,
                 new VisitorManagerImpl(),
-                new HybridManagerImpl(),
                 new NetworkManagerFactoryImpl()
             );
         }

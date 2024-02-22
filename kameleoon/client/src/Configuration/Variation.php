@@ -16,7 +16,8 @@ class Variation
             $variation->variables,
             function ($res, $var) {
                 $res[$var->key] = new Variable($var);
-                return $res; },
+                return $res;
+            },
             []
         );
     }
