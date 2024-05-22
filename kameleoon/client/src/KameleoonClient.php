@@ -3,6 +3,7 @@
 namespace Kameleoon;
 
 use Kameleoon\Data\CustomData;
+use Kameleoon\Types\RemoteVisitorDataFilter;
 
 interface KameleoonClient
 {
@@ -10,19 +11,23 @@ interface KameleoonClient
 
     public function addData($visitorCode, ...$data);
 
-    public function flush($visitorCode = null, ?int $timeout = null);
+    public function flush($visitorCode = null, ?int $timeout = null, bool $isUniqueIdentifier = false);
 
-    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null);
+    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,
+        bool $isUniqueIdentifier = false);
 
-    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null): bool;
+    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null,
+        bool $isUniqueIdentifier = false): bool;
 
-    public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null);
+    public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null,
+        bool $isUniqueIdentifier = false);
 
     public function getFeatureVariable(
         string $visitorCode,
         string $featureKey,
         string $variableName,
-        ?int $timeout = null
+        ?int $timeout = null,
+        bool $isUniqueIdentifier = false
     );
 
     public function getFeatureVariationVariables(string $featureKey, string $variationKey, ?int $timeout = null): array;
@@ -35,7 +40,8 @@ interface KameleoonClient
 
     public function getRemoteData(string $key, ?int $timeout = null);
 
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true): array;
+    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true,
+        ?RemoteVisitorDataFilter $filter = null, bool $isUniqueIdentifier = false): array;
 
     /**
      * Sets or updates the legal consent status for a visitor identified by their unique visitor code,
@@ -65,7 +71,6 @@ interface KameleoonClient
      *                            than 255 characters)
      */
     public function setLegalConsent(string $visitorCode, bool $legalConsent): void;
-
 
     /**
      * Retrieves data associated with a visitor's warehouse audiences and adds it to the visitor.

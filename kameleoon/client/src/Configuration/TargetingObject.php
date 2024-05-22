@@ -23,4 +23,9 @@ class TargetingObject
         }
         return $this->targetingSegment;
     }
+
+    public function getSegment()
+    {
+        return $this->segment;
+    }
 }

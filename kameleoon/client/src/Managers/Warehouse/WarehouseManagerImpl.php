@@ -39,7 +39,7 @@ class WarehouseManagerImpl implements WarehouseManager
 
         $warehouseAudiencesData = new CustomData($customDataIndex, ...$dataValues);
         $visitor = $this->visitorManager->getOrCreateVisitor($visitorCode);
-        $visitor->addData($warehouseAudiencesData);
+        $visitor->addData(true, $warehouseAudiencesData);
 
         return $warehouseAudiencesData;
     }

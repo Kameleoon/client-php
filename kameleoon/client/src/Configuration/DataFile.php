@@ -13,6 +13,11 @@ class DataFile
     private array $featureFlags;
     private Settings $settings;
     private ?string $environment;
+    private bool $hasAnyTDRule;
+    private array $featureFlagById;
+    private array $ruleBySegmentId;
+    private array $variationById;
+    private CustomDataInfo $customDataInfo;
 
     private bool $isLoaded = false;
 
@@ -21,6 +26,7 @@ class DataFile
         $this->environment = $environment;
         $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
         $this->settings = new Settings($jsonDataFile);
+        $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
     }
 
     public function setLoaded()
@@ -41,6 +47,43 @@ class DataFile
     public function getSettings(): Settings
     {
         return $this->settings;
+    }
+
+    public function getCustomDataInfo(): CustomDataInfo
+    {
+        return $this->customDataInfo;
+    }
+
+    public function hasAnyTargetedDeliveryRule(): bool
+    {
+        if (!isset($this->hasAnyTDRule)) {
+            $this->hasAnyTDRule = $this->detIfHasAnyTargetedDeliveryRule();
+        }
+        return $this->hasAnyTDRule;
+    }
+
+    public function getFeatureFlagById(int $featureFlagId): ?FeatureFlag
+    {
+        if (!isset($this->featureFlagById)) {
+            $this->featureFlagById = $this->collectFeatureFlagById();
+        }
+        return $this->featureFlagById[$featureFlagId] ?? null;
+    }
+
+    public function getRuleBySegmentId(int $segmentId): ?Rule
+    {
+        if (!isset($this->ruleBySegmentId)) {
+            $this->ruleBySegmentId = $this->collectRuleBySegmentId();
+        }
+        return $this->ruleBySegmentId[$segmentId] ?? null;
+    }
+
+    public function getVariation(int $variationId): ?VariationByExposition
+    {
+        if (!isset($this->variationById)) {
+            $this->variationById = $this->collectVariationById();
+        }
+        return $this->variationById[$variationId] ?? null;
     }
 
     private static function createFromJSON($json, $key, $class): array
@@ -70,7 +113,7 @@ class DataFile
         return $featureFlag;
     }
 
-    public function hasAnyTargetedDeliveryRule(): bool
+    private function detIfHasAnyTargetedDeliveryRule(): bool
     {
         foreach ($this->featureFlags as $featureFlag) {
             if ($featureFlag->getEnvironmentEnabled()) {
@@ -82,5 +125,38 @@ class DataFile
             }
         }
         return false;
+    }
+
+    private function collectFeatureFlagById(): array
+    {
+        $featureFlagById = [];
+        foreach ($this->featureFlags as $ffKey => $ff) {
+            $featureFlagById[$ff->id] = $ff;
+        }
+        return $featureFlagById;
+    }
+
+    private function collectRuleBySegmentId(): array
+    {
+        $ruleBySegmentId = [];
+        foreach ($this->featureFlags as $ffKey => $ff) {
+            foreach ($ff->rules as $ruleKey => $rule) {
+                $ruleBySegmentId[intval($rule->getSegment()->id ?? null)] = $rule;
+            }
+        }
+        return $ruleBySegmentId;
+    }
+
+    private function collectVariationById(): array
+    {
+        $variationById = [];
+        foreach ($this->featureFlags as $ffKey => $ff) {
+            foreach ($ff->rules as $ruleKey => $rule) {
+                foreach ($rule->variationByExposition as $varKey => $variation) {
+                    $variationById[$variation->variationId] = $variation;
+                }
+            }
+        }
+        return $variationById;
     }
 }

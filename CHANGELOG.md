@@ -1,6 +1,29 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.2.0 - 2024-05-22
+
+### Features
+* New targeting conditions are now available (some of them may require [`getRemoteVisitorData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getremotevisitordata) pre-loaded data)
+  - Browser Cookie
+  - Operating System
+  - IP Geolocation
+  - Kameleoon Segment
+  - Target Feature Flag
+  - Previous Page
+  - Number of Page Views
+  - Time since First Visit
+  - Time since Last Visit
+  - Number of Visits Today
+  - Total Number of Visits
+  - New or Returning Visitor
+* New Kameleoon Data types were introduced:
+  - [`Cookie`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#cookie)
+  - [`OperatingSystem`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#operatingsystem)
+  - [`Geolocation`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#geolocation)
+### Bug fixes
+* Stability and performance improvements
+
 ## 4.1.0 - 2024-02-22
 ### Features
 * Added support for additional Data API servers across the world for even faster network requests.

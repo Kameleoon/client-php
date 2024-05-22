@@ -9,15 +9,20 @@ use Kameleoon\Data\BaseData;
 use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\Browser;
+use Kameleoon\Data\Cookie;
+use Kameleoon\Data\OperatingSystem;
+use Kameleoon\Data\Geolocation;
+use Kameleoon\Data\VisitorVisits;
 
 interface Visitor
 {
     /**
      * Adds data to the visitor's storage.
      *
-     * @param Data ...$data An array of Data objects to be added to the visitor's storage.
+     * @param bool $overwrite Data addition mode.
+     * @param BaseData ...$data An array of Data objects to be added to the visitor's storage.
      */
-    public function addData(BaseData ...$data): void;
+    public function addData(bool $overwrite, BaseData ...$data): void;
 
     /**
      * Retrieves all data associated with the visitor, which is required for targeting evaluation.
@@ -86,6 +91,34 @@ interface Visitor
     public function getBrowser(): ?Browser;
 
     /**
+     * Retrieves information about the cookies used by the visitor, if available.
+     *
+     * @return Cookie|null A Cookie object if cookie information is available, otherwise null.
+     */
+    public function getCookie(): ?Cookie;
+
+    /**
+     * Retrieves information about the operating system used by the visitor, if available.
+     *
+     * @return OperatingSystem|null A OperatingSystem object if the information is available, otherwise null.
+     */
+    public function getOperatingSystem(): ?OperatingSystem;
+
+    /**
+     * Retrieves information about the geolocation of the visitor, if available.
+     *
+     * @return Geolocation|null A Geolocation object if the information is available, otherwise null.
+     */
+    public function getGeolocation(): ?Geolocation;
+
+    /**
+     * Retrieves information about the visits of the visitor, if available.
+     *
+     * @return VisitorVisits|null A VisitorVisits object if the information is available, otherwise null.
+     */
+    public function getVisitorVisits(): ?VisitorVisits;
+
+    /**
      * Retrieves user agent information associated with the visitor.
      *
      * @return string|null A string representing user agent information, or null if not available.
@@ -132,4 +165,18 @@ interface Visitor
      *        visitor has withdrawn or not provided legal consent.
      */
     public function setLegalConsent(bool $legalConsent);
+
+    /**
+     * Gets the mapping identifier of the visitor.
+     *
+     * @return ?string
+     */
+    public function getMappingIdentifier(): ?string;
+
+    /**
+     * Sets or removes the mapping identifier of the visitor.
+     *
+     * @param ?string $value
+     */
+    public function setMappingIdentifier(?string $value): void;
 }

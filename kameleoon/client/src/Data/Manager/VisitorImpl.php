@@ -13,6 +13,10 @@ use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\PageView;
 use Kameleoon\Data\UserAgent;
+use Kameleoon\Data\Cookie;
+use Kameleoon\Data\OperatingSystem;
+use Kameleoon\Data\Geolocation;
+use Kameleoon\Data\VisitorVisits;
 
 class VisitorImpl implements Visitor
 {
@@ -22,13 +26,18 @@ class VisitorImpl implements Visitor
     private array $mapAssignedVariation;
     private ?Device $device;
     private ?Browser $browser;
+    private ?Cookie $cookie;
+    private ?OperatingSystem $operatingSystem;
+    private ?Geolocation $geolocation;
+    private ?VisitorVisits $visitorVisits;
     private ?string $userAgent;
     private bool $legalConsent;
+    private ?string $mappingIdentifier;
 
-    public function addData(BaseData ...$data): void
+    public function addData(bool $overwrite, BaseData ...$data): void
     {
         foreach ($data as $d) {
-            $this->processDataType($d);
+            $this->processDataType($d, $overwrite);
         }
     }
 
@@ -62,6 +71,12 @@ class VisitorImpl implements Visitor
         if (isset($this->browser)) {
             yield $this->browser;
         }
+        if (isset($this->operatingSystem)) {
+            yield $this->operatingSystem;
+        }
+        if (isset($this->geolocation)) {
+            yield $this->geolocation;
+        }
         if (isset($this->mapAssignedVariation)) {
             foreach ($this->mapAssignedVariation as $assignedVariation) {
                 yield $assignedVariation;
@@ -82,8 +97,8 @@ class VisitorImpl implements Visitor
     public function getPageView(): Generator
     {
         if (isset($this->mapPageView)) {
-            foreach ($this->mapPageView as $pair) {
-                yield $pair[0];
+            foreach ($this->mapPageView as $visit) {
+                yield $visit->getPageView();
             }
         }
     }
@@ -112,6 +127,26 @@ class VisitorImpl implements Visitor
         return $this->browser ?? null;
     }
 
+    public function getCookie(): ?Cookie
+    {
+        return $this->cookie ?? null;
+    }
+
+    public function getOperatingSystem(): ?OperatingSystem
+    {
+        return $this->operatingSystem ?? null;
+    }
+
+    public function getGeolocation(): ?Geolocation
+    {
+        return $this->geolocation ?? null;
+    }
+
+    public function getVisitorVisits(): ?VisitorVisits
+    {
+        return $this->visitorVisits ?? null;
+    }
+
     public function getUserAgent(): ?string
     {
         return $this->userAgent ?? null;
@@ -125,15 +160,24 @@ class VisitorImpl implements Visitor
     public function assignVariation(
         int $experimentId,
         int $variationId,
-        int $ruleType = AssignedVariation::RULE_TYPE_UNKNOWN
-    ): void {
-        $this->getOrCreateMapAssignedVariation()[$experimentId] =
-            new AssignedVariationImpl($experimentId, $variationId, $ruleType);
+        int $ruleType = AssignedVariation::RULE_TYPE_UNKNOWN): void
+    {
+        $this->addVariation(new AssignedVariationImpl($experimentId, $variationId, $ruleType), true);
     }
 
-    public function setLegalConsent(bool $legalConsent)
+    public function setLegalConsent(bool $legalConsent): void
     {
         $this->legalConsent = $legalConsent;
+    }
+
+    public function getMappingIdentifier(): ?string
+    {
+        return $this->mappingIdentifier ?? null;
+    }
+
+    public function setMappingIdentifier(?string $value): void
+    {
+        $this->mappingIdentifier = $value;
     }
 
     public function getAssignedVariations(): array
@@ -141,26 +185,44 @@ class VisitorImpl implements Visitor
         return $this->mapAssignedVariation ?? [];
     }
 
-    private function processDataType(BaseData $data): void
+    private function processDataType(BaseData $data, bool $overwrite): void
     {
         switch (true) {
             case $data instanceof CustomData:
-                $this->addCustomData($data);
+                $this->addCustomData($data, $overwrite);
                 break;
             case $data instanceof PageView:
                 $this->addPageView($data);
                 break;
+            case $data instanceof PageViewVisit:
+                $this->addPageViewVisit($data);
+                break;
             case $data instanceof Device:
-                $this->setDevice($data);
+                $this->setDevice($data, $overwrite);
                 break;
             case $data instanceof Browser:
-                $this->setBrowser($data);
+                $this->setBrowser($data, $overwrite);
+                break;
+            case $data instanceof Cookie:
+                $this->setCookie($data);
+                break;
+            case $data instanceof OperatingSystem:
+                $this->setOperatingSystem($data, $overwrite);
+                break;
+            case $data instanceof Geolocation:
+                $this->setGeolocation($data, $overwrite);
+                break;
+            case $data instanceof VisitorVisits:
+                $this->setVisitorVisits($data);
                 break;
             case $data instanceof Conversion:
                 $this->addConversion($data);
                 break;
             case $data instanceof UserAgent:
                 $this->setUserAgent($data);
+                break;
+            case $data instanceof AssignedVariation:
+                $this->addVariation($data, $overwrite);
                 break;
             default:
                 break;
@@ -175,9 +237,11 @@ class VisitorImpl implements Visitor
         return $this->mapCustomData;
     }
 
-    private function addCustomData(CustomData $customData): void
+    private function addCustomData(CustomData $customData, bool $overwrite): void
     {
-        $this->getOrCreateMapCustomData()[$customData->getId()] = $customData;
+        if ($overwrite || !array_key_exists($customData->getId(), $this->getOrCreateMapCustomData())) {
+            $this->getOrCreateMapCustomData()[$customData->getId()] = $customData;
+        }
     }
 
     private function &getOrCreateMapPageView(): array
@@ -192,21 +256,62 @@ class VisitorImpl implements Visitor
     {
         $url = $pageView->getUrl();
         $mapPageView = &$this->getOrCreateMapPageView();
-        if (array_key_exists($url, $mapPageView)) {
-            $mapPageView[$url] = [$pageView, $mapPageView[$url][1] + 1];
+        $visit = $mapPageView[$url] ?? null;
+        if ($visit !== null) {
+            $mapPageView[$url] = $visit->overwrite($pageView);
         } else {
-            $mapPageView[$url] = [$pageView, 1];
+            $mapPageView[$url] = new PageViewVisit($pageView);
         }
     }
 
-    private function setDevice(Device $device): void
+    private function addPageViewVisit(PageViewVisit $pageViewVisit): void
     {
-        $this->device = $device;
+        $url = $pageViewVisit->getPageView()->getUrl();
+        $mapPageView = &$this->getOrCreateMapPageView();
+        $visit = $mapPageView[$url] ?? null;
+        if ($visit !== null) {
+            $visit->merge($pageViewVisit);
+        } else {
+            $mapPageView[$url] = $pageViewVisit;
+        }
     }
 
-    private function setBrowser(Browser $browser): void
+    private function setDevice(Device $device, bool $overwrite): void
     {
-        $this->browser = $browser;
+        if ($overwrite || (($this->device ?? null) === null)) {
+            $this->device = $device;
+        }
+    }
+
+    private function setBrowser(Browser $browser, bool $overwrite): void
+    {
+        if ($overwrite || (($this->browser ?? null) === null)) {
+            $this->browser = $browser;
+        }
+    }
+
+    private function setCookie(Cookie $cookie): void
+    {
+        $this->cookie = $cookie;
+    }
+
+    private function setOperatingSystem(OperatingSystem $operatingSystem, bool $overwrite): void
+    {
+        if ($overwrite || (($this->operatingSystem ?? null) === null)) {
+            $this->operatingSystem = $operatingSystem;
+        }
+    }
+
+    private function setGeolocation(Geolocation $geolocation, bool $overwrite): void
+    {
+        if ($overwrite || (($this->geolocation ?? null) === null)) {
+            $this->geolocation = $geolocation;
+        }
+    }
+
+    private function setVisitorVisits(VisitorVisits $visitorVisits): void
+    {
+        $this->visitorVisits = $visitorVisits;
     }
 
     private function &getOrCreateCollectionConversion(): array
@@ -233,5 +338,12 @@ class VisitorImpl implements Visitor
             $this->mapAssignedVariation = array();
         }
         return $this->mapAssignedVariation;
+    }
+
+    private function addVariation(AssignedVariation $variation, bool $overwrite = true): void
+    {
+        if ($overwrite || !array_key_exists($variation->getExperimentId(), $this->getOrCreateMapAssignedVariation())) {
+            $this->getOrCreateMapAssignedVariation()[$variation->getExperimentId()] = $variation;
+        }
     }
 }

@@ -19,8 +19,8 @@ class PageUrlCondition extends StringValueCondition
             if ($this->operator === TargetingOperator::EXACT) {
                 return !is_null($this->conditionValue) && isset($data[$this->conditionValue]);
             } else {
-                foreach ($data as $pair) {
-                    if ($this->checkTargeting($pair[0]->getUrl())) {
+                foreach ($data as $visit) {
+                    if ($this->checkTargeting($visit->getPageView()->getUrl())) {
                         return true;
                     }
                 }

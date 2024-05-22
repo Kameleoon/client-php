@@ -6,6 +6,7 @@ namespace Kameleoon\Network;
 
 use Exception;
 use Kameleoon\Helpers\SdkVersion;
+use Kameleoon\Types\RemoteVisitorDataFilter;
 
 class UrlProvider
 {
@@ -59,9 +60,10 @@ class UrlProvider
         );
     }
 
-    public function makeTrackingUrl(string $visitorCode): string
+    public function makeTrackingUrl(string $visitorCode, bool $isUniqueIdentifier): string
     {
-        $qp = new QueryParam(QueryParams::VISITOR_CODE, $visitorCode);
+        $qp =
+            new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode);
         return sprintf("https://%s%s?%s&%s", $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase, $qp);
     }
 
@@ -91,17 +93,30 @@ class UrlProvider
         }
     }
 
-    public function makeVisitorDataGetUrl(string $visitorCode): string
+    public function makeVisitorDataGetUrl(string $visitorCode,
+        RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier): string
     {
         $qb = new QueryBuilder(
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
-            new QueryParam(QueryParams::VISITOR_CODE, $visitorCode),
-            new QueryParam(QueryParams::CURRENT_VISIT, "true"),
-            new QueryParam(QueryParams::MAX_NUMBER_PREVIOUS_VISITS, "1"),
-            new QueryParam(QueryParams::CUSTOM_DATA, "true"),
+            new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode),
+            new QueryParam(QueryParams::MAX_NUMBER_PREVIOUS_VISITS, (string)$filter->previousVisitAmount),
             new QueryParam(QueryParams::VERSION, "0"),
         );
+        self::addFlagParamIfRequired($qb, QueryParams::CURRENT_VISIT, $filter->currentVisit);
+        self::addFlagParamIfRequired($qb, QueryParams::CUSTOM_DATA, $filter->customData);
+        self::addFlagParamIfRequired($qb, QueryParams::CONVERSION, $filter->conversion);
+        self::addFlagParamIfRequired($qb, QueryParams::GEOLOCATION, $filter->geolocation);
+        self::addFlagParamIfRequired($qb, QueryParams::EXPERIMENT, $filter->experiments);
+        self::addFlagParamIfRequired($qb, QueryParams::PAGE, $filter->pageViews);
+        self::addFlagParamIfRequired($qb, QueryParams::STATIC_DATA,
+            ($filter->device || $filter->browser || $filter->operatingSystem));
         return sprintf("https://%s%s?%s", $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
+    }
+    private static function addFlagParamIfRequired(QueryBuilder $qb, string $paramName, bool $state): void
+    {
+        if ($state) {
+            $qb->append(new QueryParam($paramName, "true"));
+        }
     }
 
     public function makeApiDataGetRequestUrl(string $key): string

@@ -4,18 +4,8 @@ namespace Kameleoon;
 
 use Exception;
 use Generator;
-use Kameleoon\Targeting\Condition\CustomDatum;
-use Kameleoon\Targeting\Condition\ExclusiveExperiment;
-use Kameleoon\Targeting\Condition\TargetedExperiment;
-use Kameleoon\Targeting\Condition\BrowserCondition;
-use Kameleoon\Targeting\Condition\ConversionCondition;
-use Kameleoon\Targeting\Condition\DeviceCondition;
-use Kameleoon\Targeting\Condition\PageTitleCondition;
-use Kameleoon\Targeting\Condition\PageUrlCondition;
-use Kameleoon\Targeting\Condition\SdkInfo;
-use Kameleoon\Targeting\Condition\SdkLanguageCondition;
-use Kameleoon\Targeting\Condition\VisitorCodeCondition;
-use Kameleoon\Targeting\TargetingEngine;
+use Kameleoon\Targeting\TargetingManager;
+use Kameleoon\Targeting\TargetingManagerImpl;
 
 use Kameleoon\Configuration\DataFile;
 use Kameleoon\Configuration\FeatureFlag;
@@ -37,6 +27,8 @@ use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Helpers\VisitorCodeManager;
 use Kameleoon\Managers\Hybrid\HybridManager;
 use Kameleoon\Managers\Hybrid\HybridManagerImpl;
+use Kameleoon\Managers\RemoteData\RemoteDataManager;
+use Kameleoon\Managers\RemoteData\RemoteDataManagerImpl;
 use Kameleoon\Managers\Warehouse\WarehouseManager;
 use Kameleoon\Managers\Warehouse\WarehouseManagerImpl;
 use Kameleoon\Network\AccessToken\AccessTokenSourceFactoryImpl;
@@ -47,6 +39,7 @@ use Kameleoon\Network\Cookie\CookieManagerImpl;
 use Kameleoon\Network\NetworkManager;
 use Kameleoon\Network\NetworkManagerFactory;
 use Kameleoon\Network\NetworkManagerFactoryImpl;
+use Kameleoon\Types\RemoteVisitorDataFilter;
 
 class KameleoonClientImpl implements KameleoonClient
 {
@@ -63,6 +56,8 @@ class KameleoonClientImpl implements KameleoonClient
     private CookieManager $cookieManager;
     private HybridManager $hybridManager;
     private WarehouseManager $warehouseManager;
+    private TargetingManager $targetingManager;
+    private RemoteDataManager $remoteDataManager;
 
     public function __construct(
         string $siteCode,
@@ -76,6 +71,7 @@ class KameleoonClientImpl implements KameleoonClient
 
         $this->visitorManager = $visitorManager ?? new VisitorManagerImpl();
         $this->cookieManager = new CookieManagerImpl($clientConfig->getCookieOptions());
+        $this->targetingManager = new TargetingManagerImpl($this->visitorManager);
 
         $this->clientConfig = $clientConfig;
 
@@ -119,41 +115,47 @@ class KameleoonClientImpl implements KameleoonClient
     public function addData($visitorCode, ...$data)
     {
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->visitorManager->getOrCreateVisitor($visitorCode)->addData(...$data);
+        $this->loadConfiguration();
+        $this->visitorManager->addData($visitorCode, ...$data);
     }
 
-    public function flush($visitorCode = null, ?int $timeout = null)
+    public function flush($visitorCode = null, ?int $timeout = null, bool $isUniqueIdentifier = false)
     {
         $this->loadConfiguration($timeout);
         if ($visitorCode !== null) {
             VisitorCodeManager::validateVisitorCode($visitorCode);
-            $this->sendTrackingRequest($visitorCode);
+            $this->sendTrackingRequest($visitorCode, $isUniqueIdentifier);
         } else {
             foreach ($this->visitorManager as $user) {
-                $this->flush($user, $timeout);
+                $this->flush($user, $timeout, $isUniqueIdentifier);
             }
         }
     }
 
-    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null)
+    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,
+        bool $isUniqueIdentifier = false)
     {
         $this->addData($visitorCode, new Data\Conversion($goalID));
-        $this->flush($visitorCode, $timeout);
+        $this->flush($visitorCode, $timeout, $isUniqueIdentifier);
     }
 
-    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null): bool
+    public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null,
+        bool $isUniqueIdentifier = false): bool
     {
         try {
-            [, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
+            [, $variationKey] =
+                $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout, $isUniqueIdentifier);
             return $variationKey != Variation::VARIATION_OFF;
         } catch (FeatureEnvironmentDisabled $ex) {
             return false;
         }
     }
 
-    public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null): string
+    public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null,
+        bool $isUniqueIdentifier = false): string
     {
-        [, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
+        [, $variationKey] =
+            $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout, $isUniqueIdentifier);
         return $variationKey;
     }
 
@@ -161,9 +163,11 @@ class KameleoonClientImpl implements KameleoonClient
         string $visitorCode,
         string $featureKey,
         string $variableName,
-        ?int $timeout = null
-    ) {
-        [$featureFlag, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
+        ?int $timeout = null,
+        bool $isUniqueIdentifier = false)
+    {
+        [$featureFlag, $variationKey] =
+            $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout, $isUniqueIdentifier);
         $variation = $featureFlag->getVariation($variationKey);
         if (is_null($variation)) {
             return null;
@@ -219,61 +223,33 @@ class KameleoonClientImpl implements KameleoonClient
         );
     }
 
-
     public function getRemoteData(string $key, ?int $timeout = null)
     {
-        $data = $this->networkManager->getRemoteData($key, $timeout);
-        if ($data === null) {
-            error_log("Get remote data failed");
-        }
-        return $data;
+        return $this->getRemoteDataManager()->getData($key, $timeout);
     }
 
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true): array
+    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true,
+        ?RemoteVisitorDataFilter $filter = null, bool $isUniqueIdentifier = false): array
     {
-        $json = $this->networkManager->getRemoteVisitorData($visitorCode, $timeout);
-        if ($json === null) {
-            error_log("Get remote visitor data failed");
-            return [];
-        }
-        $customDataList = $this->parseCustomDataList($json);
-        if ($addData) {
-            $this->addData($visitorCode, ...$customDataList);
-        }
-        return $customDataList;
-    }
-    private function parseCustomDataList($json): array
-    {
-        $latestRecord = $json->currentVisit ?? null;
-        if ($latestRecord === null) {
-            $previousVisits = $json->previousVisits ?? null;
-            if ($previousVisits === null || empty($previousVisits)) {
-                return [];
-            }
-            $latestRecord = $previousVisits[0];
-        }
-        $customDataEvents = $latestRecord->customDataEvents ?? null;
-        return ($customDataEvents !== null) ? $this->parseCustomDataListFromEvents($customDataEvents) : [];
-    }
-    private function parseCustomDataListFromEvents($customDataEvents): array
-    {
-        $customDataList = [];
-        foreach ($customDataEvents as $event) {
-            $customDataJson = $event->data ?? null;
-            if ($customDataJson === null) {
-                continue;
-            }
-            $customDataList[] = $this->parseCustomData($customDataJson);
-        }
-        return $customDataList;
+        return $this->getRemoteDataManager()->
+            getVisitorData($visitorCode, $timeout, $filter, $addData, $isUniqueIdentifier);
     }
 
-    private function parseCustomData($json): CustomData
-    {
-        $id = $json->index ?? -1;
-        $valuesCountMap = (array)$json->valuesCountMap ?? [];
-        $values = array_keys($valuesCountMap);
-        return new CustomData($id, ...$values);
+    public function getVisitorWarehouseAudience(
+        string $visitorCode,
+        int $customDataIndex,
+        ?string $warehouseKey = null,
+        ?int $timeout = null
+    ): ?CustomData {
+        if (!isset($this->warehouseManager)) {
+            $this->warehouseManager = new WarehouseManagerImpl($this->networkManager, $this->visitorManager);
+        }
+        return $this->warehouseManager->getVisitorWarehouseAudience(
+            $visitorCode,
+            $customDataIndex,
+            $warehouseKey,
+            $timeout
+        );
     }
 
     public function setLegalConsent(string $visitorCode, bool $legalConsent): void
@@ -290,8 +266,9 @@ class KameleoonClientImpl implements KameleoonClient
     private function getFeatureVariationKeyInternal(
         string $visitorCode,
         string $featureKey,
-        ?int $timeout = null
-    ): array {
+        ?int $timeout = null,
+        bool $isUniqueIdentifier = false): array
+    {
         $this->loadConfiguration($timeout);
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $featureFlag = $this->dataFile->getFeatureFlag($featureKey);
@@ -300,7 +277,7 @@ class KameleoonClientImpl implements KameleoonClient
         $experimentId = !is_null($rule) ? $rule->experimentId : null;
         $variationId = !is_null($variation) ? $variation->variationId : null;
         $this->saveVariation($visitorCode, $experimentId, $variationId, $rule !== null && $rule->isTargetedDelivery());
-        $this->sendTrackingRequest($visitorCode);
+        $this->sendTrackingRequest($visitorCode, $isUniqueIdentifier);
         return [$featureFlag, $variationKey];
     }
 
@@ -372,66 +349,6 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    // check targeting
-    private function checkTargeting($visitorCode, $containerID, $xpOrFFOrRule)
-    {
-        $targeting = true;
-
-        // performing targeting
-        $targetingSegment = $xpOrFFOrRule->getTargetingSegment();
-        if (null != $targetingSegment) {
-            $targetingTree = $targetingSegment->getTargetingTree();
-            // obtaining targeting checking result and assigning targeting to container
-            $targeting = TargetingEngine::checkTargetingTree(
-                $targetingTree,
-                function ($type) use ($visitorCode, $containerID) {
-                    return $this->getConditionData($type, $visitorCode, $containerID);
-                }
-            );
-        }
-
-        return $targeting;
-    }
-
-    private function getConditionData($type, $visitorCode, $campaignId)
-    {
-        $visitor = $this->visitorManager->getVisitor($visitorCode);
-        switch ($type) {
-            case CustomDatum::TYPE:
-                return !is_null($visitor) ? $visitor->getCustomData() : null;
-
-            case PageTitleCondition::TYPE:
-                return !is_null($visitor) ? $visitor->getPageView() : null;
-
-            case PageUrlCondition::TYPE:
-                return !is_null($visitor) ? $visitor->getPageViewVisit() : null;
-
-            case DeviceCondition::TYPE:
-                return !is_null($visitor) ? $visitor->getDevice() : null;
-
-            case BrowserCondition::TYPE:
-                return !is_null($visitor) ? $visitor->getBrowser() : null;
-
-            case ConversionCondition::TYPE:
-                return !is_null($visitor) ? $visitor->getConversion() : null;
-
-            case VisitorCodeCondition::TYPE:
-                return $visitorCode;
-
-            case TargetedExperiment::TYPE:
-                return !is_null($visitor) ? $visitor->getAssignedVariations() : [];
-
-            case ExclusiveExperiment::TYPE:
-                return [$campaignId, !is_null($visitor) ? $visitor->getAssignedVariations() : []];
-
-            case SdkLanguageCondition::TYPE:
-                return new SdkInfo(SdkVersion::getName(), SdkVersion::getVersion());
-
-            default:
-                return null;
-        }
-    }
-
     private function applyNewConfiguration($dataFileJson)
     {
         $this->dataFile = new DataFile($dataFileJson, $this->clientConfig->getEnvironment());
@@ -440,6 +357,8 @@ class KameleoonClientImpl implements KameleoonClient
             && !$this->dataFile->hasAnyTargetedDeliveryRule();
         $this->cookieManager->setConsentRequired($consentRequired);
         $this->networkManager->getUrlProvider()->applyDataApiDomain($settings->getDataApiDomain());
+        $this->visitorManager->setCustomDataInfo($this->dataFile->getCustomDataInfo());
+        $this->targetingManager->setDataFile($this->dataFile);
     }
 
     private function loadDataFileLocal()
@@ -488,19 +407,23 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function calculateVariationKeyForFeature(string $visitorCode, FeatureFlag $featureFlag): array
     {
+        // use mappingIdentifier instead of visitorCode if it was set up
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $mappingIdentifier = ($visitor !== null) ? $visitor->getMappingIdentifier() : null;
+        $codeForHash = ($mappingIdentifier === null) ? $visitorCode : $mappingIdentifier;
         // no rules -> return defaultVariationKey
         foreach ($featureFlag->rules as $rule) {
             // check if visitor is targeted for rule, else next rule
-            if ($this->checkTargeting($visitorCode, $featureFlag->id, $rule)) {
+            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experimentId, $rule)) {
                 // uses for rule exposition
-                $hashRule = HashDouble::obtain($visitorCode, $rule->id, $rule->respoolTime);
+                $hashRule = HashDouble::obtain($codeForHash, $rule->id, $rule->respoolTime);
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
                     if ($rule->isTargetedDelivery() && count($rule->variationByExposition) > 0) {
                         return [$rule->variationByExposition[0], $rule];
                     }
                     // uses for variation's expositions
-                    $hashVariation = HashDouble::obtain($visitorCode, $rule->experimentId, $rule->respoolTime);
+                    $hashVariation = HashDouble::obtain($codeForHash, $rule->experimentId, $rule->respoolTime);
                     // get variation key with new hashVariation
                     $variation = $this->calculateVariatonRuleHash($rule, $hashVariation);
                     // variation can be null for experiment rules only, for targeted rule will be always exist
@@ -528,9 +451,24 @@ class KameleoonClientImpl implements KameleoonClient
         return null;
     }
 
-    private function sendTrackingRequest(string $visitorCode): void
+    private function createAnonymousIfRequired(string $visitorCode, ?Visitor &$visitor, bool $isUniqueIdentifier): bool
+    {
+        $mappingIdentifier = ($visitor !== null) ? $visitor->getMappingIdentifier() : null;
+        $useMappingValue = $isUniqueIdentifier && ($mappingIdentifier != null);
+        // need to find if anonymous visitor is behind unique (anonym doesn't exist if MappingIdentifier == null)
+        if ($isUniqueIdentifier && ($mappingIdentifier == null)) {
+            // We haven't anonymous behind, in this case we should create "fake" anonymous with id == visitorCode
+            // and link it with with mapping value == visitorCode (like we do as we have real anonymous visitor)
+            $visitor = $this->visitorManager->addData($visitorCode,
+                new CustomData($this->dataFile->getCustomDataInfo()->getMappingIdentifierIndex(), $visitorCode));
+        }
+        return $useMappingValue;
+    }
+
+    private function sendTrackingRequest(string $visitorCode, bool $isUniqueIdentifier = false): void
     {
         $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $useMappingValue = $this->createAnonymousIfRequired($visitorCode, $visitor, $isUniqueIdentifier);
         $userAgent = !is_null($visitor) ? $visitor->getUserAgent() : null;
         $visitorData = iterator_to_array($this->getVisitorData($visitor));
         // We should send tracking data only if: content isn't required or legal consent is given from a visitor
@@ -543,6 +481,7 @@ class KameleoonClientImpl implements KameleoonClient
                 $visitorCode,
                 $visitorData,
                 $userAgent,
+                $useMappingValue,
                 $this->clientConfig->getDebugMode()
             );
             foreach ($visitorData as $data) {
@@ -575,20 +514,11 @@ class KameleoonClientImpl implements KameleoonClient
         return $isConsentGiven || (!is_null($visitor) && $visitor->getLegalConsent());
     }
 
-    public function getVisitorWarehouseAudience(
-        string $visitorCode,
-        int $customDataIndex,
-        ?string $warehouseKey = null,
-        ?int $timeout = null
-    ): ?CustomData {
-        if (!isset($this->warehouseManager)) {
-            $this->warehouseManager = new WarehouseManagerImpl($this->networkManager, $this->visitorManager);
+    private function getRemoteDataManager(): RemoteDataManager
+    {
+        if (!isset($this->remoteDataManager)) {
+            $this->remoteDataManager = new RemoteDataManagerImpl($this->networkManager, $this->visitorManager);
         }
-        return $this->warehouseManager->getVisitorWarehouseAudience(
-            $visitorCode,
-            $customDataIndex,
-            $warehouseKey,
-            $timeout
-        );
+        return $this->remoteDataManager;
     }
 }

@@ -6,6 +6,7 @@ namespace Kameleoon\Network;
 
 use Kameleoon\Network\AccessToken\AccessTokenSource;
 use Kameleoon\Network\NetProvider;
+use Kameleoon\Types\RemoteVisitorDataFilter;
 
 interface NetworkManager
 {
@@ -23,6 +24,8 @@ interface NetworkManager
 
     // Data API
     public function getRemoteData(string $key, ?int $timeout = null);
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null);
-    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $debug): void;
+    public function getRemoteVisitorData(string $visitorCode, RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier,
+        ?int $timeout = null);
+    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $isUniqueIdentifier,
+        bool $debug): void;
 }

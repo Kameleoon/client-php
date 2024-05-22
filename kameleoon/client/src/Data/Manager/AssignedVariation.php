@@ -14,6 +14,7 @@ interface AssignedVariation extends BaseData
 
     public function getVariationId(): int;
     public function getExperimentId(): int;
+    public function getRuleType(): int;
     public function isValid(?int $respoolTime): bool;
-    public function isTargetedDelivery(): bool;
+    public function getAssignmentDate(): ?int;
 }

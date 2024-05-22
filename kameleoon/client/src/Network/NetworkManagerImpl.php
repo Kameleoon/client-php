@@ -7,6 +7,7 @@ namespace Kameleoon\Network;
 use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Network\AccessToken\AccessTokenSource;
 use Kameleoon\Network\AccessToken\AccessTokenSourceFactory;
+use Kameleoon\Types\RemoteVisitorDataFilter;
 
 class NetworkManagerImpl implements NetworkManager
 {
@@ -124,16 +125,18 @@ class NetworkManagerImpl implements NetworkManager
         return $this->makeSyncCall($request);
     }
 
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null)
+    public function getRemoteVisitorData(string $visitorCode, RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier,
+        ?int $timeout = null)
     {
-        $url = $this->urlProvider->makeVisitorDataGetUrl($visitorCode);
+        $url = $this->urlProvider->makeVisitorDataGetUrl($visitorCode, $filter, $isUniqueIdentifier);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
         return $this->makeSyncCall($request);
     }
 
-    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $debug): void
+    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $isUniqueIdentifier,
+        bool $debug): void
     {
-        $url = $this->urlProvider->makeTrackingUrl($visitorCode);
+        $url = $this->urlProvider->makeTrackingUrl($visitorCode, $isUniqueIdentifier);
         if ($debug) {
             $debugParams = $this->urlProvider->makeExperimentRegisterDebugParams();
             if ($debugParams !== null) {

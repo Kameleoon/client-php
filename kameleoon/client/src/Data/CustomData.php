@@ -13,11 +13,13 @@ class CustomData extends Sendable implements Data
 
     private $id;
     private array $values;
+    private bool $isMappingIdentifier;
 
     public function __construct(int $id, string ...$values)
     {
         $this->id = $id;
         $this->values = $values;
+        $this->isMappingIdentifier = false;
     }
 
     public function getId()
@@ -28,6 +30,16 @@ class CustomData extends Sendable implements Data
     public function getValues(): array
     {
         return $this->values;
+    }
+
+    public function getIsMappingIdentifier(): bool
+    {
+        return $this->isMappingIdentifier;
+    }
+
+    public function setIsMappingIdentifier(bool $value): void
+    {
+        $this->isMappingIdentifier = $value;
     }
 
     public function getQuery(): string
@@ -41,12 +53,16 @@ class CustomData extends Sendable implements Data
         }
         $encoded = json_encode($arrayBuilder, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         //$encoded = str_replace("\\", "", $encoded);
-        return (string)new QueryBuilder(
+        $qb = new QueryBuilder(
             new QueryParam(QueryParams::EVENT_TYPE, self::EVENT_TYPE),
             new QueryParam(QueryParams::INDEX, (string)$this->id),
             new QueryParam(QueryParams::VALUES_COUNT_MAP, $encoded),
             new QueryParam(QueryParams::OVERWRITE, "true"),
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
+        if ($this->isMappingIdentifier) {
+            $qb->append(new QueryParam(QueryParams::MAPPING_IDENTIFIER, "true"));
+        }
+        return (string)$qb;
     }
 }

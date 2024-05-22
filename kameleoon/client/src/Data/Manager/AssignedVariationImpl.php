@@ -9,7 +9,7 @@ use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
 use Kameleoon\Network\Sendable;
 
-class AssignedVariationImpl extends Sendable
+class AssignedVariationImpl extends Sendable implements AssignedVariation
 {
     public const EVENT_TYPE = "experiment";
 
@@ -45,10 +45,14 @@ class AssignedVariationImpl extends Sendable
         return $this->ruleType;
     }
 
-
     public function isValid(?int $respoolTime): bool
     {
         return ($respoolTime == null) || (($this->assignmentDate ?? 0) >= $respoolTime);
+    }
+
+    public function getAssignmentDate(): ?int
+    {
+        return $this->assignmentDate;
     }
 
     public function getQuery(): string
