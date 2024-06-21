@@ -72,6 +72,7 @@ class QueryParams
     public const GOAL_ID = "goalId";
     public const HREF = "href";
     public const INDEX = "index";
+    public const KCS = "kcs";
     public const KEY = "key";
     public const LATITUDE = "latitude";
     public const LONGITUDE = "longitude";

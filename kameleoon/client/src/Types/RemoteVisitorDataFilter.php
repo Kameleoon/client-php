@@ -16,6 +16,7 @@ class RemoteVisitorDataFilter
     public bool $operatingSystem;
     public bool $conversion;
     public bool $experiments;
+    public bool $kcs;
 
     public function __construct(
         int $previousVisitAmount = 1,
@@ -27,7 +28,8 @@ class RemoteVisitorDataFilter
         bool $browser = false,
         bool $operatingSystem = false,
         bool $conversion = false,
-        bool $experiments = false)
+        bool $experiments = false,
+        bool $kcs = false)
     {
         $this->previousVisitAmount = $previousVisitAmount;
         $this->currentVisit = $currentVisit;
@@ -39,5 +41,6 @@ class RemoteVisitorDataFilter
         $this->operatingSystem = $operatingSystem;
         $this->conversion = $conversion;
         $this->experiments = $experiments;
+        $this->kcs = $kcs;
     }
 }

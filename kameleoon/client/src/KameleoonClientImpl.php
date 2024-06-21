@@ -39,6 +39,7 @@ use Kameleoon\Network\Cookie\CookieManagerImpl;
 use Kameleoon\Network\NetworkManager;
 use Kameleoon\Network\NetworkManagerFactory;
 use Kameleoon\Network\NetworkManagerFactoryImpl;
+use Kameleoon\Types\Variable;
 use Kameleoon\Types\RemoteVisitorDataFilter;
 
 class KameleoonClientImpl implements KameleoonClient
@@ -197,6 +198,9 @@ class KameleoonClientImpl implements KameleoonClient
         return array_keys($this->dataFile->getFeatureFlags());
     }
 
+    /**
+     * @deprecated deprecated since version 4.3.0. Please use `getActiveFeatures`
+     */
     public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array
     {
         VisitorCodeManager::validateVisitorCode($visitorCode);
@@ -210,6 +214,37 @@ class KameleoonClientImpl implements KameleoonClient
             }
         }
         return $arrayKeys;
+    }
+
+    public function getActiveFeatures(string $visitorCode, ?int $timeout = null): array
+    {
+        VisitorCodeManager::validateVisitorCode($visitorCode);
+        $mapActiveFeatures = array();
+        $this->loadConfiguration($timeout);
+        foreach ($this->dataFile->getFeatureFlags() as $featureFlag) {
+            if (!$featureFlag->getEnvironmentEnabled()) {
+                continue;
+            }
+            [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            $variationKey = $this->calculateVariationKey($varByExp, $rule, $featureFlag->defaultVariationKey);
+            if ($variationKey == Variation::VARIATION_OFF) {
+                continue;
+            }
+            $variation = $featureFlag->getVariation($variationKey);
+            $variables = array();
+            if ($variation !== null) {
+                foreach ($variation->variables as $key => $variable) {
+                    $variables[$key] = new Variable($key, $variable->type, $variable->getValue());
+                }
+            }
+            $mapActiveFeatures[$featureFlag->featureKey] = new Types\Variation(
+                $variationKey,
+                ($varByExp !== null) ? $varByExp->variationId : null,
+                ($rule !== null) ? $rule->experimentId : null,
+                $variables
+            );
+        }
+        return $mapActiveFeatures;
     }
 
     public function getEngineTrackingCode(string $visitorCode): string

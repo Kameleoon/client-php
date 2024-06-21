@@ -18,11 +18,11 @@ class VisitNumberTodayCondition extends NumberCondition
 
     public function check($data): bool
     {
-        if (!($data instanceof VisitorVisits) || ($this->conditionValue === null)) {
+        if (!VisitorVisits::isVisitorVisits($data) || ($this->conditionValue === null)) {
             return false;
         }
         $startOfDay = TimeHelper::todayStartInMilliseconds();
-        $prevVisitsTime = $data->getPreviousVisitTimestamps();
+        $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
         $todayVisitNumber = 0;
         while (($todayVisitNumber < count($prevVisitsTime)) && ($prevVisitsTime[$todayVisitNumber] >= $startOfDay)) {
             $todayVisitNumber++;

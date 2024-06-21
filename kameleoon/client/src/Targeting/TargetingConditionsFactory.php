@@ -24,6 +24,7 @@ use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 use Kameleoon\Targeting\Condition\VisitorNewReturnCondition;
+use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 
 class TargetingConditionsFactory
 {
@@ -90,6 +91,9 @@ class TargetingConditionsFactory
             case TimeElapsedSinceVisitCondition::FIRST_VISIT_TYPE:
             case TimeElapsedSinceVisitCondition::LAST_VISIT_TYPE:
                 return new TimeElapsedSinceVisitCondition($conditionData);
+
+            case KcsHeatRangeCondition::TYPE:
+                return new KcsHeatRangeCondition($conditionData);
 
             default:
                 return new UnknownCondition($conditionData);

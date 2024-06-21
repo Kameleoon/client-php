@@ -7,7 +7,7 @@ class Variable
     private const JSON_TYPE = "JSON";
 
     public $key;
-    private $type;
+    public $type;
     private $value;
 
     public function __construct($variable)

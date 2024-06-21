@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kameleoon\Data;
 
 class VisitorVisits implements BaseData
@@ -11,8 +13,13 @@ class VisitorVisits implements BaseData
         $this->previousVisitTimestamps = $previousVisitTimestamps;
     }
 
-    public function getPreviousVisitTimestamps(): array
+    public static function getPreviousVisitTimestamps(?VisitorVisits $visitorVisits): array
     {
-        return $this->previousVisitTimestamps;
+        return ($visitorVisits !== null) ? $visitorVisits->previousVisitTimestamps : [];
+    }
+
+    public static function isVisitorVisits($obj): bool
+    {
+        return ($obj === null) || ($obj instanceof VisitorVisits);
     }
 }

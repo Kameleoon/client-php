@@ -10,6 +10,7 @@ use Kameleoon\Data\Conversion;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\Geolocation;
+use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\PageView;
 use Kameleoon\Data\VisitorVisits;
@@ -27,7 +28,8 @@ class RemoteVisitorData
     public ?Browser $browser;
     public ?OperatingSystem $operatingSystem;
     public ?Geolocation $geolocation;
-    public VisitorVisits $previousVisitorVisits;
+    public ?VisitorVisits $previousVisitorVisits;
+    public ?KcsHeat $kcsHeat;
 
     public function __construct($json)
     {
@@ -42,21 +44,23 @@ class RemoteVisitorData
         $this->parseVisit(($json !== null) ? $json->currentVisit ?? null : null);
         $this->previousVisitorVisits =
             $this->parsePreviousVisits(($json !== null) ? $json->previousVisits ?? null : null);
+        $this->kcsHeat = $this->parseKcsHeat(($json !== null) ? $json->kcs ?? null : null);
     }
 
-    private function parsePreviousVisits($previousVisits): VisitorVisits
+    private function parsePreviousVisits($previousVisits): ?VisitorVisits
     {
+        if (!is_array($previousVisits)) {
+            return null;
+        }
         $prevVisitsTimestamps = [];
-        if (is_array($previousVisits)) {
-            foreach ($previousVisits as $prevVisit) {
-                if ($prevVisit != null) {
-                    $timeStarted = $prevVisit->timeStarted ?? 0;
-                    array_push($prevVisitsTimestamps, $timeStarted);
-                    $this->parseVisit($prevVisit);
-                }
+        foreach ($previousVisits as $prevVisit) {
+            if ($prevVisit != null) {
+                $timeStarted = $prevVisit->timeStarted ?? 0;
+                array_push($prevVisitsTimestamps, $timeStarted);
+                $this->parseVisit($prevVisit);
             }
         }
-        return new VisitorVisits($prevVisitsTimestamps);
+        return empty($prevVisitsTimestamps) ? null : new VisitorVisits($prevVisitsTimestamps);
     }
 
     private function parseVisit($visit): void
@@ -224,6 +228,30 @@ class RemoteVisitorData
         }
     }
 
+    private function parseKcsHeat($kcs): ?KcsHeat
+    {
+        if (!is_object($kcs)) {
+            return null;
+        }
+        $valueMap = [];
+        foreach ($kcs as $strKeyMomentId => $goalScores) {
+            if (!(is_object($goalScores) && is_string($strKeyMomentId) && ctype_digit($strKeyMomentId))) {
+                continue;
+            }
+            $goalScoreMap = [];
+            foreach ($goalScores as $strGoalId => $score) {
+                if (!((is_float($score) || is_int($score)) && is_string($strGoalId) && ctype_digit($strGoalId))) {
+                    continue;
+                }
+                $goalId = intval($strGoalId);
+                $goalScoreMap[$goalId] = $score;
+            }
+            $keyMomentId = intval($strKeyMomentId);
+            $valueMap[$keyMomentId] = $goalScoreMap;
+        }
+        return empty($valueMap) ? null : new KcsHeat($valueMap);
+    }
+
     public function markVisitorDataAsSent(?CustomDataInfo $customDataInfo): void
     {
         foreach ($this->customDataDict as $id => $customData) {
@@ -284,7 +312,12 @@ class RemoteVisitorData
         array_push($dataList, ...array_values($this->pageViewVisits));
         array_push($dataList, ...$this->conversions);
         array_push($dataList, ...array_values($this->experiments));
-        array_push($dataList, $this->previousVisitorVisits);
+        if ($this->previousVisitorVisits !== null) {
+            array_push($dataList, $this->previousVisitorVisits);
+        }
+        if ($this->kcsHeat !== null) {
+            array_push($dataList, $this->kcsHeat);
+        }
         if ($this->device !== null) {
             array_push($dataList, $this->device);
         }

@@ -30,6 +30,11 @@ class Response
         $this->code = $code;
         $this->body = $body;
     }
+
+    public function isExpectedStatusCode(): bool
+    {
+        return ($this->code !== null) && ((intdiv($this->code, 100) === 2) || ($this->code === 403));
+    }
 }
 
 abstract class Request

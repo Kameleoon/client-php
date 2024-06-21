@@ -34,7 +34,12 @@ interface KameleoonClient
 
     public function getFeatureList(?int $timeout = null): array;
 
+    /**
+     * @deprecated deprecated since version 4.3.0. Please use `getActiveFeatures`
+     */
     public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array;
+
+    public function getActiveFeatures(string $visitorCode, ?int $timeout = null): array;
 
     public function getEngineTrackingCode(string $visitorCode): string;
 

@@ -17,10 +17,10 @@ class VisitNumberTotalCondition extends NumberCondition
 
     public function check($data): bool
     {
-        if (!($data instanceof VisitorVisits) || ($this->conditionValue === null)) {
+        if (!VisitorVisits::isVisitorVisits($data) || ($this->conditionValue === null)) {
             return false;
         }
-        $prevVisitsTime = $data->getPreviousVisitTimestamps();
+        $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
         return $this->checkTargeting(count($prevVisitsTime) + 1); // +1 for current visit
     }
 }

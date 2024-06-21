@@ -16,6 +16,7 @@ use Kameleoon\Data\UserAgent;
 use Kameleoon\Data\Cookie;
 use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\Geolocation;
+use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\VisitorVisits;
 
 class VisitorImpl implements Visitor
@@ -29,6 +30,7 @@ class VisitorImpl implements Visitor
     private ?Cookie $cookie;
     private ?OperatingSystem $operatingSystem;
     private ?Geolocation $geolocation;
+    private ?KcsHeat $kcsHeat;
     private ?VisitorVisits $visitorVisits;
     private ?string $userAgent;
     private bool $legalConsent;
@@ -142,6 +144,11 @@ class VisitorImpl implements Visitor
         return $this->geolocation ?? null;
     }
 
+    public function getKcsHeat(): ?KcsHeat
+    {
+        return $this->kcsHeat ?? null;
+    }
+
     public function getVisitorVisits(): ?VisitorVisits
     {
         return $this->visitorVisits ?? null;
@@ -211,6 +218,9 @@ class VisitorImpl implements Visitor
                 break;
             case $data instanceof Geolocation:
                 $this->setGeolocation($data, $overwrite);
+                break;
+            case $data instanceof KcsHeat:
+                $this->setKcsHeat($data);
                 break;
             case $data instanceof VisitorVisits:
                 $this->setVisitorVisits($data);
@@ -307,6 +317,11 @@ class VisitorImpl implements Visitor
         if ($overwrite || (($this->geolocation ?? null) === null)) {
             $this->geolocation = $geolocation;
         }
+    }
+
+    private function setKcsHeat(KcsHeat $kcsHeat): void
+    {
+        $this->kcsHeat = $kcsHeat;
     }
 
     private function setVisitorVisits(VisitorVisits $visitorVisits): void

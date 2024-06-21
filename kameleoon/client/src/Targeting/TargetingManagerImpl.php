@@ -29,6 +29,7 @@ use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 use Kameleoon\Targeting\Condition\VisitorNewReturnCondition;
+use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 
 class TargetingManagerImpl implements TargetingManager
 {
@@ -124,6 +125,9 @@ class TargetingManagerImpl implements TargetingManager
             case VisitNumberTodayCondition::TYPE:
             case VisitorNewReturnCondition::TYPE:
                 return ($visitor != null) ? $visitor->getVisitorVisits() : null;
+
+            case KcsHeatRangeCondition::TYPE:
+                return ($visitor != null) ? $visitor->getKcsHeat() : null;
 
             default:
                 return null;

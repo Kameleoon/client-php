@@ -23,7 +23,7 @@ class TimeElapsedSinceVisitCondition extends NumberCondition
     public function check($data): bool
     {
         if (($data instanceof VisitorVisits) && ($this->conditionValue !== null)) {
-            $prevVisitsTime = $data->getPreviousVisitTimestamps();
+            $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
             if (empty($prevVisitsTime)) {
                 return false;
             }

@@ -12,6 +12,7 @@ use Kameleoon\Data\Browser;
 use Kameleoon\Data\Cookie;
 use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\Geolocation;
+use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\VisitorVisits;
 
 interface Visitor
@@ -110,6 +111,13 @@ interface Visitor
      * @return Geolocation|null A Geolocation object if the information is available, otherwise null.
      */
     public function getGeolocation(): ?Geolocation;
+
+    /**
+     * Retrieves information about the KCS heat of the visitor, if available.
+     *
+     * @return KcsHeat|null A KcsHeat object if the information is available, otherwise null.
+     */
+    public function getKcsHeat(): ?KcsHeat;
 
     /**
      * Retrieves information about the visits of the visitor, if available.

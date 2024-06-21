@@ -21,8 +21,8 @@ class VisitorNewReturnCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        if (($data instanceof VisitorVisits) && ($this->visitorType !== null)) {
-            $prevVisitsTime = $data->getPreviousVisitTimestamps();
+        if (VisitorVisits::isVisitorVisits($data) && ($this->visitorType !== null)) {
+            $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
             switch ($this->visitorType) {
                 case self::VISITOR_TYPE_NEW:
                     return empty($prevVisitsTime);

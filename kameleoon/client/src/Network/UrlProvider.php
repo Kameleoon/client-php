@@ -102,6 +102,7 @@ class UrlProvider
             new QueryParam(QueryParams::MAX_NUMBER_PREVIOUS_VISITS, (string)$filter->previousVisitAmount),
             new QueryParam(QueryParams::VERSION, "0"),
         );
+        self::addFlagParamIfRequired($qb, QueryParams::KCS, $filter->kcs);
         self::addFlagParamIfRequired($qb, QueryParams::CURRENT_VISIT, $filter->currentVisit);
         self::addFlagParamIfRequired($qb, QueryParams::CUSTOM_DATA, $filter->customData);
         self::addFlagParamIfRequired($qb, QueryParams::CONVERSION, $filter->conversion);

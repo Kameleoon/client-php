@@ -81,10 +81,10 @@ class NetworkManagerImpl implements NetworkManager
         if ($response->error !== null) {
             $errMsg = sprintf(self::NETWORK_CALL_FAILED_FMT, $request->url);
             error_log("{$errMsg}}: Error occurred during request: {$response->error}");
-        } elseif (intdiv($response->code, 100) !== 2) {
+        } elseif (!$response->isExpectedStatusCode()) {
             $errMsg = sprintf(self::NETWORK_CALL_FAILED_FMT, $request->url);
             error_log("{$errMsg}: Received unexpected status code '{$response->code}'");
-            if (($response->code == 401 || $response->code == 403) && $accessToken !== null) {
+            if (($response->code == 401) && ($accessToken !== null)) {
                 $request->isJwtRequired = false;
                 $this->netProvider->callSync($request);
                 $this->accessTokenSource->discardToken($accessToken);
