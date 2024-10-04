@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kameleoon\Network;
 
 use Kameleoon\Helpers\SdkVersion;
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\AccessToken\AccessTokenSource;
 use Kameleoon\Network\AccessToken\AccessTokenSourceFactory;
 use Kameleoon\Types\RemoteVisitorDataFilter;
@@ -19,8 +20,6 @@ class NetworkManagerImpl implements NetworkManager
     const H_CONTENT_TYPE_NAME = "Content-Type";
     const H_CONTENT_TYPE_VALUE = "application/x-www-form-urlencoded";
     const H_AUTHORIZATION = "Authorization";
-
-    const NETWORK_CALL_FAILED_FMT = "Network call '%s' failed";
 
     private UrlProvider $urlProvider;
     private ?string $environment;
@@ -67,7 +66,6 @@ class NetworkManagerImpl implements NetworkManager
         return $this->accessTokenSource;
     }
 
-
     private function getTimeout(?int $timeout): int
     {
         return ($timeout === null) ? $this->defaultTimeout : $timeout;
@@ -75,23 +73,26 @@ class NetworkManagerImpl implements NetworkManager
 
     protected function makeSyncCall(SyncRequest $request)
     {
+        KameleoonLogger::debug("Running request %s", $request);
         $request->timeout = $this->getTimeout($request->timeout);
         $accessToken = $this->applyAccessToken($request, $request->timeout);
         $response = $this->netProvider->callSync($request);
         if ($response->error !== null) {
-            $errMsg = sprintf(self::NETWORK_CALL_FAILED_FMT, $request->url);
-            error_log("{$errMsg}}: Error occurred during request: {$response->error}");
+            KameleoonLogger::error("%s call '%s' failed: Error occurred during request: %s",
+                $request->httpMethod, $request->url, $response->error);
         } elseif (!$response->isExpectedStatusCode()) {
-            $errMsg = sprintf(self::NETWORK_CALL_FAILED_FMT, $request->url);
-            error_log("{$errMsg}: Received unexpected status code '{$response->code}'");
+            KameleoonLogger::error("%s call '%s' failed: Received unexpected status code '%s'",
+                $request->httpMethod, $request->url, $response->code);
             if (($response->code == 401) && ($accessToken !== null)) {
                 $request->isJwtRequired = false;
                 $this->netProvider->callSync($request);
                 $this->accessTokenSource->discardToken($accessToken);
             }
         } else {
+            KameleoonLogger::debug("Fetched response %s for request %s", $response, $request);
             return $response->body;
         }
+        KameleoonLogger::debug("Fetched response null for request %s", $request);
         return null;
     }
 
@@ -133,19 +134,17 @@ class NetworkManagerImpl implements NetworkManager
         return $this->makeSyncCall($request);
     }
 
-    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $isUniqueIdentifier,
-        bool $debug): void
+    public function sendTrackingData(string $lines, bool $debug): void
     {
-        $url = $this->urlProvider->makeTrackingUrl($visitorCode, $isUniqueIdentifier);
+        $url = $this->urlProvider->makeTrackingUrl();
         if ($debug) {
             $debugParams = $this->urlProvider->makeExperimentRegisterDebugParams();
             if ($debugParams !== null) {
                 $url .= $debugParams;
             }
         }
-        $data = $this->formTrackingCallData($lines);
-        $headers = ($userAgent !== null) ? [self::USER_AGENT_HEADER_NAME => $userAgent] : null;
-        $request = new AsyncRequest($url, $headers, $data, true);
+        $headers = ["Content-Type" => "text/plain"];
+        $request = new AsyncRequest($url, $headers, $lines, true);
         $this->makeAsyncCall($request);
     }
 
@@ -153,18 +152,6 @@ class NetworkManagerImpl implements NetworkManager
     {
         $this->applyAccessToken($request, $this->defaultTimeout);
         $this->netProvider->callAsync($request);
-    }
-
-    private function formTrackingCallData(iterable $lines): string
-    {
-        $data = "";
-        foreach ($lines as $line) {
-            if (!empty($data)) {
-                $data .= "\n";
-            }
-            $data .= $line->getQuery();
-        }
-        return $data;
     }
 
     public function fetchAccessJWToken(string $clientId, string $clientSecret, ?int $timeout = null): ?object

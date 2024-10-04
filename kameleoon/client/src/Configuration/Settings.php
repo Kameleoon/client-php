@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kameleoon\Configuration;
 
+use Kameleoon\Logging\KameleoonLogger;
+
 class Settings
 {
     const CONSENT_TYPE_REQUIRED = "REQUIRED";
@@ -19,7 +21,7 @@ class Settings
                 isset($settings->consentType) ? $settings->consentType === Settings::CONSENT_TYPE_REQUIRED : false;
             $this->dataApiDomain = isset($settings->dataApiDomain) ? $settings->dataApiDomain : null;
         } else {
-            error_log("Kameleoon SDK: Configuration object is missed in server response: " . json_encode($json));
+            KameleoonLogger::error("Configuration object is missed in server response: " . json_encode($json));
         }
     }
 
@@ -31,5 +33,14 @@ class Settings
     public function getDataApiDomain(): ?string
     {
         return $this->dataApiDomain;
+    }
+
+    public function __toString(): string
+    {
+        return sprintf(
+            "Settings{consentRequired:%s,dataApiDomain:'%s'}",
+            $this->consentRequired ? "true" : "false",
+            $this->dataApiDomain,
+        );
     }
 }

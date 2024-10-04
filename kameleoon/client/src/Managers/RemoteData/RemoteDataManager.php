@@ -11,5 +11,5 @@ interface RemoteDataManager
     public function getData(string $key, ?int $timeout): ?object;
 
     public function getVisitorData(string $visitorCode, ?int $timeout,
-        ?RemoteVisitorDataFilter $filter, bool $addData, bool $isUniqueIdentifier): array;
+        ?RemoteVisitorDataFilter $filter, bool $addData): array;
 }

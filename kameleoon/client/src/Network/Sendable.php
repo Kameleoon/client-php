@@ -17,6 +17,7 @@ abstract class Sendable implements QueryPresentable
     public function markAsSent(): void
     {
         $this->sent = true;
+        $this->nonce = null;
     }
 
     protected function getNonce(): string

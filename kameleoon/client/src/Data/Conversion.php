@@ -37,4 +37,10 @@ class Conversion extends Sendable implements Data
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
     }
+
+    public function __toString(): string
+    {
+        return "Conversion{goalId:" . $this->goalId . ",revenue:" . $this->revenue . ",negative:" .
+            ($this->negative ? 'true' : 'false') . "}";
+    }
 }

@@ -11,23 +11,23 @@ interface KameleoonClient
 
     public function addData($visitorCode, ...$data);
 
-    public function flush($visitorCode = null, ?int $timeout = null, bool $isUniqueIdentifier = false);
+    public function flush($visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null);
 
     public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,
-        bool $isUniqueIdentifier = false);
+        ?bool $isUniqueIdentifier = null);
 
     public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null,
-        bool $isUniqueIdentifier = false): bool;
+        ?bool $isUniqueIdentifier = null): bool;
 
     public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null,
-        bool $isUniqueIdentifier = false);
+        ?bool $isUniqueIdentifier = null);
 
     public function getFeatureVariable(
         string $visitorCode,
         string $featureKey,
         string $variableName,
         ?int $timeout = null,
-        bool $isUniqueIdentifier = false
+        ?bool $isUniqueIdentifier = null
     );
 
     public function getFeatureVariationVariables(string $featureKey, string $variationKey, ?int $timeout = null): array;
@@ -46,7 +46,7 @@ interface KameleoonClient
     public function getRemoteData(string $key, ?int $timeout = null);
 
     public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true,
-        ?RemoteVisitorDataFilter $filter = null, bool $isUniqueIdentifier = false): array;
+        ?RemoteVisitorDataFilter $filter = null, ?bool $isUniqueIdentifier = null): array;
 
     /**
      * Sets or updates the legal consent status for a visitor identified by their unique visitor code,

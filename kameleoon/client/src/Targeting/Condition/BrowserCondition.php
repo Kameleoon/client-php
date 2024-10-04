@@ -6,6 +6,7 @@ namespace Kameleoon\Targeting\Condition;
 
 use Kameleoon\Data\Browser;
 use Kameleoon\Helpers\SdkVersion;
+use Kameleoon\Logging\KameleoonLogger;
 
 class BrowserCondition extends TargetingCondition
 {
@@ -57,7 +58,7 @@ class BrowserCondition extends TargetingCondition
             case TargetingOperator::LOWER:
                 return $browser->getVersion() < $versionNumber;
             default:
-                error_log("Unexpected comparing operation for Browser condition: " . $this->operator);
+                KameleoonLogger::error("Unexpected comparing operation for 'Browser' condition: '%s'", $this->operator);
                 return false;
         }
     }

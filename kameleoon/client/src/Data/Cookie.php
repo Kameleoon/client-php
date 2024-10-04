@@ -17,4 +17,9 @@ class Cookie implements Data
     {
         return $this->cookies;
     }
+
+    public function __toString(): string
+    {
+        return "Cookie{cookies:" . implode(',', $this->cookies) . "}";
+    }
 }

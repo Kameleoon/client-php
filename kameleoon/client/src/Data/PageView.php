@@ -47,4 +47,10 @@ class PageView extends Sendable implements Data
         }
         return (string)$qb;
     }
+
+    public function __toString(): string
+    {
+        return "PageView{url:'" . $this->url . "',title:'" . $this->title . "',referrers:" .
+            json_encode($this->referrers) . "}";
+    }
 }

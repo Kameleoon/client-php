@@ -55,4 +55,12 @@ class PageViewVisit implements BaseData
     {
         $this->count++;
     }
+
+    public function __toString(): string {
+        return "PageViewVisit{" .
+            "lastTimestamp:" . $this->lastTimestamp .
+            ",count:" . $this->count .
+            ",pageView:" . $this->pageView .
+            "}";
+    }
 }

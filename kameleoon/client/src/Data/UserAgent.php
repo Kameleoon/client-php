@@ -22,4 +22,9 @@ class UserAgent implements Data
     {
         return "";
     }
+
+    public function __toString(): string
+    {
+        return "UserAgent{value:'" . $this->value . "'}";
+    }
 }

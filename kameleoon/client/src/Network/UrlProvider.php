@@ -21,6 +21,7 @@ class UrlProvider
     const POST_DATA_PATH = "/map/maps";
 
     const AUTOMATION_API_URL = "https://api.kameleoon.com";
+    const TEST_AUTOMATION_API_URL = "https://api.kameleoon.net";
     public const ACCESS_TOKEN_PATH = "/oauth/token";
 
     private string $siteCode;
@@ -57,14 +58,13 @@ class UrlProvider
             new QueryParam(QueryParams::SDK_NAME, SdkVersion::getName()),
             new QueryParam(QueryParams::SDK_VERSION, SdkVersion::getVersion()),
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
+            new QueryParam(QueryParams::BODY_UA, "true", false),
         );
     }
 
-    public function makeTrackingUrl(string $visitorCode, bool $isUniqueIdentifier): string
+    public function makeTrackingUrl(): string
     {
-        $qp =
-            new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode);
-        return sprintf("https://%s%s?%s&%s", $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase, $qp);
+        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase);
     }
 
     public function makeExperimentRegisterDebugParams(): ?string
@@ -83,8 +83,8 @@ class UrlProvider
             }
             $http_user_agent = $_SERVER['HTTP_USER_AGENT'] ?? "";
             return "&" . new QueryBuilder(
-                new QueryParam(QueryParams::DEBUG, "true"),
-                new QueryParam(QueryParams::URL, rawurlencode($currentUrl)),
+                new QueryParam(QueryParams::DEBUG, "true", false),
+                new QueryParam(QueryParams::URL, rawurlencode($currentUrl)), # //~ Why are these values encoded twice?
                 new QueryParam(QueryParams::IP, rawurlencode($ip)),
                 new QueryParam(QueryParams::UA, rawurlencode($http_user_agent)),
             );
@@ -100,7 +100,7 @@ class UrlProvider
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
             new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode),
             new QueryParam(QueryParams::MAX_NUMBER_PREVIOUS_VISITS, (string)$filter->previousVisitAmount),
-            new QueryParam(QueryParams::VERSION, "0"),
+            new QueryParam(QueryParams::VERSION, "0", false),
         );
         self::addFlagParamIfRequired($qb, QueryParams::KCS, $filter->kcs);
         self::addFlagParamIfRequired($qb, QueryParams::CURRENT_VISIT, $filter->currentVisit);
@@ -116,7 +116,7 @@ class UrlProvider
     private static function addFlagParamIfRequired(QueryBuilder $qb, string $paramName, bool $state): void
     {
         if ($state) {
-            $qb->append(new QueryParam($paramName, "true"));
+            $qb->append(new QueryParam($paramName, "true", false));
         }
     }
 

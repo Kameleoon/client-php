@@ -17,4 +17,9 @@ class KcsHeat implements BaseData
     {
         return $this->values;
     }
+
+    public function __toString(): string
+    {
+        return "KcsHeat{values:" . json_encode($this->values) . "}";
+    }
 }

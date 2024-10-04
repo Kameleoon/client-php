@@ -4,18 +4,26 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
+use Exception;
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\NetProvider;
 use Kameleoon\Network\Response;
 use Kameleoon\Network\ResponseContentType;
-use Exception;
 
 class NetProviderImpl implements NetProvider
 {
-    private string $kameleoonWorkDir;
+    const ASYNC_REQUEST_BODY_SIZE_LIMIT = 2560 * 1024; // 2.5 * 1024^2 bytes
 
-    public function __construct(string $kameleoonWorkDir)
+    private string $siteCode;
+    private string $kameleoonWorkDir;
+    private int $asyncRequestBodySizeLimit;
+
+    public function __construct(string $siteCode, string $kameleoonWorkDir,
+        int $asyncRequestBodySizeLimit = self::ASYNC_REQUEST_BODY_SIZE_LIMIT)
     {
+        $this->siteCode = $siteCode;
         $this->kameleoonWorkDir = $kameleoonWorkDir;
+        $this->asyncRequestBodySizeLimit = $asyncRequestBodySizeLimit;
     }
 
     private static function getContent($body, int $responseContentType)
@@ -68,6 +76,12 @@ class NetProviderImpl implements NetProvider
 
     public function callAsync(AsyncRequest $request): string
     {
+        $failureFile = null;
+        $hasBody = $request->body !== null;
+        $pathBase = $this->selectRequestFilePathBase();
+        $requestPath = $pathBase . ".sh";
+        $bodyPath = $pathBase . ".dat";
+        // Generate request
         $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST";
         if ($request->headers !== null) {
             foreach ($request->headers as $headerName => $headerValue) {
@@ -75,17 +89,46 @@ class NetProviderImpl implements NetProvider
             }
         }
         $requestText .= sprintf(' "%s"', $request->url);
-        if ($request->body !== null) {
-            $requestText .= sprintf(' -d "%s"', $request->body);
+        if ($hasBody) {
+            $requestText .= sprintf(' --data-binary "@%s"', $bodyPath);
         }
-        $requestText .= ' & r=${r:=0};((r=r+1));if [ $r -eq 64 ];then r=0;wait;fi;' . PHP_EOL;
-        $path = $this->getRequestsFilePath();
-        file_put_contents($path, $requestText, FILE_APPEND | LOCK_EX);
-        return $path;
+        $requestText .= PHP_EOL;
+        // Write to files
+        if (!file_exists($requestPath) && (file_put_contents($requestPath, $requestText, LOCK_EX) === false)) {
+            $failureFile = $requestPath;
+        } else if ($hasBody && (file_put_contents($bodyPath, $request->body, FILE_APPEND | LOCK_EX) === false)) {
+            $failureFile = $bodyPath;
+        }
+        if ($failureFile !== null) {
+            KameleoonLogger::error(
+                "Failed to write asynchronous request '%s' to file '%s'",
+                $request->url, $failureFile,
+            );
+        }
+        return $pathBase;
     }
 
-    private function getRequestsFilePath(): string
+    private function selectRequestFilePathBase(): string
     {
-        return sprintf("%srequests-%d.sh", $this->kameleoonWorkDir, floor(time() / 60));
+        $index = 0;
+        $pathBase = $this->getRequestFilePathBase();
+        $fileCount = 0;
+        while (file_exists("$pathBase-$fileCount.dat")) {
+            $fileCount++;
+        }
+        if ($fileCount > 0) {
+            $index = $fileCount - 1;
+            $latestFile = "$pathBase-$index.dat";
+            $latestFileSize = filesize($latestFile);
+            if (($latestFileSize === false) || ($latestFileSize >= $this->asyncRequestBodySizeLimit)) {
+                $index++;
+            }
+        }
+        return "$pathBase-$index";
+    }
+
+    public function getRequestFilePathBase(): string
+    {
+        return sprintf("%srequests-%d-%s", $this->kameleoonWorkDir, floor(time() / 60), $this->siteCode);
     }
 }

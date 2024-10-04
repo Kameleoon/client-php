@@ -82,4 +82,11 @@ class Geolocation extends Sendable implements Data
         }
         return (string)$qb;
     }
+
+    public function __toString(): string
+    {
+        return "Geolocation{country:'" . $this->country . "',region:'" . $this->region . "',city:'" .
+            $this->city . "',postalCode:'" . $this->postalCode . "',latitude:" . $this->latitude . ",longitude:" .
+            $this->longitude . "}";
+    }
 }

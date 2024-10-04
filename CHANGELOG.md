@@ -1,6 +1,29 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.4.0 - 2024-10-04
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Features
+* Improved the tracking mechanism to consolidate multiple visitors into a single request. The new approach combines information on all affected visitors into one request.
+* Enhanced [logging](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#logging):
+  - Introduced [log levels](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#log-levels):
+    - `NONE`
+    - `ERROR`
+    - `WARNING`
+    - `INFO`
+    - `DEBUG`
+  - Added support for [custom logger](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#custom-handling-of-logs) implementations.
+* Enhanced top-level domain validation within the SDK. The implementation now includes automatic trimming of extraneous symbols and provides a [warning](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#log-levels) when an invalid domain is detected.
+* Enhanced the [`getEngineTrackingCode`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getenginetrackingcode) method to properly handle `JS` and `CSS` variables.
+* New Kameleoon Data type [`UniqueIdentifier`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#uniqueidentifier) is introduced. It will be used in all methods instead of `isUniqueIdentifier` parameter:
+    - [`flush`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#flush)
+    - [`trackConversion`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#trackconversion)
+    - [`getFeatureVariationKey`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getfeaturevariationkey)
+    - [`getFeatureVariable`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getfeaturevariable)
+    - [`isFeatureActive`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#isfeatureactive)
+    - [`getRemoteVisitorData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getremotevisitordata)
+
 ## 4.3.0 - 2024-06-21
 ### Features
 * The [Likelihood to convert](https://developers.kameleoon.com/feature-management-and-experimentation/using-visit-history-in-feature-flags-and-experiments) targeting condition is now available. Pre-loading the data is required using [`getRemoteVisitorData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getremotevisitordata) with the `kcs` parameter set to `true`.

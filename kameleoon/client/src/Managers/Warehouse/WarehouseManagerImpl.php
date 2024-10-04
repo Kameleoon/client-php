@@ -5,6 +5,7 @@ namespace Kameleoon\Managers\Warehouse;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Helpers\VisitorCodeManager;
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\NetworkManager;
 
 class WarehouseManagerImpl implements WarehouseManager
@@ -16,8 +17,10 @@ class WarehouseManagerImpl implements WarehouseManager
 
     public function __construct($networkManager, $visitorManager)
     {
+        KameleoonLogger::debug("CALL: new WarehouseManager(networkManager, visitorManager)");
         $this->networkManager = $networkManager;
         $this->visitorManager = $visitorManager;
+        KameleoonLogger::debug("RETURN: new WarehouseManager(networkManager, visitorManager)");
     }
 
     public function getVisitorWarehouseAudience(
@@ -26,12 +29,15 @@ class WarehouseManagerImpl implements WarehouseManager
         ?string $warehouseKey = null,
         ?int $timeout = null
     ): ?CustomData {
+        KameleoonLogger::debug(
+            "CALL: WarehouseManager->getVisitorWarehouseAudience(visitorCode: '%s', customDataIndex: %s, warehouseKey: '%s', timeout: %s)",
+            $visitorCode, $customDataIndex, $warehouseKey, $timeout);
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $remoteDataKey = empty($warehouseKey) ? $visitorCode : $warehouseKey;
 
         $remoteData = $this->networkManager->getRemoteData($remoteDataKey, $timeout);
         if ($remoteData == null) {
-            error_log("Kameleoon SDK: Failed to fetch visitor warehouse audience");
+            KameleoonLogger::error("Failed to fetch visitor warehouse audience");
             return null;
         }
         $warehouseAudiences = $remoteData->{self::WAREHOUSE_AUDIENCES_FIELD_NAME} ?? [];
@@ -41,6 +47,10 @@ class WarehouseManagerImpl implements WarehouseManager
         $visitor = $this->visitorManager->getOrCreateVisitor($visitorCode);
         $visitor->addData(true, $warehouseAudiencesData);
 
+        KameleoonLogger::debug(
+            "RETURN: WarehouseManager->getVisitorWarehouseAudience(visitorCode: '%s', customDataIndex: %s," .
+        " warehouseKey: '%s', timeout: %s) -> (warehouseAudiencesData: %s)",
+            $visitorCode, $customDataIndex, $warehouseKey, $timeout, $warehouseAudiencesData);
         return $warehouseAudiencesData;
     }
 }

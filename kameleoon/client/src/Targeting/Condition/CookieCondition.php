@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kameleoon\Targeting\Condition;
 
 use Kameleoon\Data\Cookie;
+use Kameleoon\Logging\KameleoonLogger;
 
 class CookieCondition extends TargetingCondition
 {
@@ -53,7 +54,8 @@ class CookieCondition extends TargetingCondition
                 }
                 return $values;
             default:
-                error_log("Unexpected comparing operation for Cookie condition (name): " . $this->nameMatchType);
+                KameleoonLogger::error("Unexpected comparing operation for 'Cookie' condition (name): '%s'",
+                    $this->nameMatchType);
                 return [];
         }
     }
@@ -84,7 +86,8 @@ class CookieCondition extends TargetingCondition
                 }
                 return false;
             default:
-                error_log("Unexpected comparing operation for Cookie condition (value): " . $this->valueMatchType);
+                KameleoonLogger::error("Unexpected comparing operation for 'Cookie' condition (value): '%s'",
+                    $this->valueMatchType);
                 return false;
         }
     }

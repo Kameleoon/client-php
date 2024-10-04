@@ -26,6 +26,5 @@ interface NetworkManager
     public function getRemoteData(string $key, ?int $timeout = null);
     public function getRemoteVisitorData(string $visitorCode, RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier,
         ?int $timeout = null);
-    public function sendTrackingData(string $visitorCode, iterable $lines, ?string $userAgent, bool $isUniqueIdentifier,
-        bool $debug): void;
+    public function sendTrackingData(string $lines, bool $debug): void;
 }

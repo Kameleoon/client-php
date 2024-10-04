@@ -37,11 +37,13 @@ class QueryParam
 {
     private string $name;
     private ?string $value;
+    private bool $encodingRequired;
 
-    public function __construct(string $name, ?string $value)
+    public function __construct(string $name, ?string $value, bool $encodingRequired = true)
     {
         $this->name = $name;
         $this->value = $value;
+        $this->encodingRequired = $encodingRequired;
     }
 
     public function __toString(): string
@@ -49,13 +51,14 @@ class QueryParam
         if ($this->value === null) {
             return "";
         }
-        $encodedValue = URLEncoding::encodeURIComponent($this->value);
+        $encodedValue = $this->encodingRequired ? URLEncoding::encodeURIComponent($this->value) : $this->value;
         return sprintf("%s=%s", $this->name, $encodedValue);
     }
 }
 
 class QueryParams
 {
+    public const BODY_UA = "bodyUa";
     public const BROWSER_INDEX = "browserIndex";
     public const BROWSER_VERSION = "browserVersion";
     public const CITY = "city";
@@ -94,6 +97,7 @@ class QueryParams
     public const SITE_CODE = "siteCode";
     public const STATIC_DATA = "staticData";
     public const TITLE = "title";
+    public const USER_AGENT = "userAgent";
     public const VALUES_COUNT_MAP = "valuesCountMap";
     public const VARIATION_ID = "variationId";
     public const VERSION = "version";

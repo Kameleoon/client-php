@@ -18,8 +18,248 @@ use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\Geolocation;
 use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\VisitorVisits;
+use Kameleoon\Data\UniqueIdentifier;
+use Kameleoon\Logging\KameleoonLogger;
 
 class VisitorImpl implements Visitor
+{
+    private VisitorData $data;
+    private bool $uniqueIdentifier;
+
+    public function __construct(?VisitorImpl $source = null)
+    {
+        if ($source == null) {
+            $this->data = new VisitorData();
+            $this->uniqueIdentifier = false;
+        } else {
+            $this->data = $source->data;
+            $this->uniqueIdentifier = $source->uniqueIdentifier;
+        }
+    }
+
+    public function addData(bool $overwrite, BaseData ...$data): void
+    {
+        KameleoonLogger::debug("CALL: Visitor->addData(overwrite: %s, data: %s)", $overwrite, $data);
+        foreach ($data as $d) {
+            $this->processDataType($d, $overwrite);
+        }
+        KameleoonLogger::debug("RETURN: Visitor->addData(overwrite: %s, data: %s)", $overwrite, $data);
+    }
+
+    public function getUnsentData(): Generator
+    {
+        KameleoonLogger::debug("CALL: Visitor->getUnsentData()");
+        foreach ($this->data->getData() as $data) {
+            if (!$data->isSent()) {
+                yield $data;
+            }
+        }
+        KameleoonLogger::debug("RETURN: Visitor->getUnsentData() yield (data)");
+    }
+
+    public function getData(): Generator
+    {
+        KameleoonLogger::debug("CALL: Visitor->getData()");
+        $data = $this->data->getData();
+        KameleoonLogger::debug("RETURN: Visitor->getData() yield (data)");
+        return $data;
+    }
+
+    public function getCustomData(): array
+    {
+        $customData = $this->data->getCustomData();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getCustomData() -> (customData: %s)", $customData);
+        return $customData;
+    }
+
+    public function getPageViewVisits(): array
+    {
+        $pageViewVisits = $this->data->getPageViewVisits();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getPageViewVisits() -> (pageViewVisits: %s)", $pageViewVisits);
+        return $pageViewVisits;
+    }
+
+    public function getPageViews(): Generator
+    {
+        KameleoonLogger::debug("CALL: Visitor->getPageViews()");
+        $pageViews = $this->data->getPageViews();
+        KameleoonLogger::debug("RETURN: Visitor->getPageViews() yield (pageViews)");
+        return $pageViews;
+    }
+
+    public function getConversions(): array
+    {
+        $conversions = $this->data->getConversions();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getConversions() -> (conversions: %s)", $conversions);
+        return $conversions;
+    }
+
+    public function getUnsentConversions(): Generator
+    {
+        KameleoonLogger::debug("CALL: Visitor->getUnsentConversions()");
+        foreach ($this->data->getConversions() as $conversion) {
+            if (!$conversion->isSent()) {
+                yield $conversion;
+            }
+        }
+        KameleoonLogger::debug("RETURN: Visitor->getUnsentConversions() yield (conversion)");
+    }
+
+    public function getDevice(): ?Device
+    {
+        $device = $this->data->getDevice();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getDevice() -> (device: %s)", $device);
+        return $device;
+    }
+
+    public function getBrowser(): ?Browser
+    {
+        $browser = $this->data->getBrowser();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getBrowser() -> (browser: %s)", $browser);
+        return $browser;
+    }
+
+    public function getCookie(): ?Cookie
+    {
+        $cookie = $this->data->getCookie();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getCookie() -> (cookie: %s)", $cookie);
+        return $cookie;
+    }
+
+    public function getOperatingSystem(): ?OperatingSystem
+    {
+        $operatingSystem = $this->data->getOperatingSystem();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getOperatingSystem() -> (operatingSystem: %s)", $operatingSystem);
+        return $operatingSystem;
+    }
+
+    public function getGeolocation(): ?Geolocation
+    {
+        $geolocation = $this->data->getGeolocation();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getGeolocation() -> (geolocation: %s)", $geolocation);
+        return $geolocation;
+    }
+
+    public function getKcsHeat(): ?KcsHeat
+    {
+        $kcsHeat = $this->data->getKcsHeat();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getKcsHeat() -> (kcsHeat: %s)", $kcsHeat);
+        return $kcsHeat;
+    }
+
+    public function getVisitorVisits(): ?VisitorVisits
+    {
+        $visitorVisits = $this->data->getVisitorVisits();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getVisitorVisits() -> (visitorVisits: %s)", $visitorVisits);
+        return $visitorVisits;
+    }
+
+    public function getUserAgent(): ?string
+    {
+        $userAgent = $this->data->getUserAgent();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getUserAgent() -> (userAgent: '%s')", $userAgent);
+        return $userAgent;
+    }
+
+    public function getLegalConsent(): bool
+    {
+        $legalConsent = $this->data->getLegalConsent();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getLegalConsent() -> (legalConsent: %s)", $legalConsent);
+        return $legalConsent;
+    }
+
+    public function assignVariation(
+        int $experimentId,
+        int $variationId,
+        int $ruleType = AssignedVariation::RULE_TYPE_UNKNOWN): void
+    {
+        $this->data->addVariation(new AssignedVariationImpl($experimentId, $variationId, $ruleType), true);
+    }
+
+    public function setLegalConsent(bool $legalConsent): void
+    {
+        $this->data->setLegalConsent($legalConsent);
+    }
+
+    public function getMappingIdentifier(): ?string
+    {
+        return $this->data->getMappingIdentifier();
+    }
+
+    public function setMappingIdentifier(?string $value): void
+    {
+        $this->data->setMappingIdentifier($value);
+    }
+
+    public function getAssignedVariations(): array
+    {
+        return $this->data->getAssignedVariations();
+    }
+
+    public function isUniqueIdentifier(): bool
+    {
+        return $this->uniqueIdentifier;
+    }
+
+    private function processDataType(BaseData $data, bool $overwrite): void
+    {
+        switch (true) {
+            case $data instanceof CustomData:
+                $this->data->addCustomData($data, $overwrite);
+                break;
+            case $data instanceof PageView:
+                $this->data->addPageView($data);
+                break;
+            case $data instanceof PageViewVisit:
+                $this->data->addPageViewVisit($data);
+                break;
+            case $data instanceof Device:
+                $this->data->setDevice($data, $overwrite);
+                break;
+            case $data instanceof Browser:
+                $this->data->setBrowser($data, $overwrite);
+                break;
+            case $data instanceof Cookie:
+                $this->data->setCookie($data);
+                break;
+            case $data instanceof OperatingSystem:
+                $this->data->setOperatingSystem($data, $overwrite);
+                break;
+            case $data instanceof Geolocation:
+                $this->data->setGeolocation($data, $overwrite);
+                break;
+            case $data instanceof KcsHeat:
+                $this->data->setKcsHeat($data);
+                break;
+            case $data instanceof VisitorVisits:
+                $this->data->setVisitorVisits($data);
+                break;
+            case $data instanceof Conversion:
+                $this->data->addConversion($data);
+                break;
+            case $data instanceof UserAgent:
+                $this->data->setUserAgent($data);
+                break;
+            case $data instanceof AssignedVariation:
+                $this->data->addVariation($data, $overwrite);
+                break;
+            case $data instanceof UniqueIdentifier:
+                $this->uniqueIdentifier = $data->getValue();
+                break;
+            default:
+                KameleoonLogger::warning("Added data has unsupported type " . get_class($data));
+                break;
+        }
+    }
+
+    public function clone(): Visitor
+    {
+        return new VisitorImpl($this);
+    }
+}
+
+
+class VisitorData
 {
     private array $mapCustomData;
     private array $mapPageView;
@@ -36,22 +276,6 @@ class VisitorImpl implements Visitor
     private bool $legalConsent;
     private ?string $mappingIdentifier;
 
-    public function addData(bool $overwrite, BaseData ...$data): void
-    {
-        foreach ($data as $d) {
-            $this->processDataType($d, $overwrite);
-        }
-    }
-
-    public function getUnsentData(): Generator
-    {
-        foreach ($this->getData() as $data) {
-            if (!$data->isSent()) {
-                yield $data;
-            }
-        }
-    }
-
     public function getData(): Generator
     {
         if (isset($this->mapCustomData)) {
@@ -59,7 +283,7 @@ class VisitorImpl implements Visitor
                 yield $customData;
             }
         }
-        foreach ($this->getPageView() as $pageView) {
+        foreach ($this->getPageViews() as $pageView) {
             yield $pageView;
         }
         if (isset($this->collectionConversion)) {
@@ -91,12 +315,12 @@ class VisitorImpl implements Visitor
         return $this->mapCustomData ?? [];
     }
 
-    public function getPageViewVisit(): array
+    public function getPageViewVisits(): array
     {
         return $this->mapPageView ?? [];
     }
 
-    public function getPageView(): Generator
+    public function getPageViews(): Generator
     {
         if (isset($this->mapPageView)) {
             foreach ($this->mapPageView as $visit) {
@@ -105,18 +329,9 @@ class VisitorImpl implements Visitor
         }
     }
 
-    public function getConversion(): array
+    public function getConversions(): array
     {
         return $this->collectionConversion ?? [];
-    }
-
-    public function getUnsentConversion(): Generator
-    {
-        foreach ($this->getConversion() as $conversion) {
-            if (!$conversion->isSent()) {
-                yield $conversion;
-            }
-        }
     }
 
     public function getDevice(): ?Device
@@ -164,14 +379,6 @@ class VisitorImpl implements Visitor
         return $this->legalConsent ?? false;
     }
 
-    public function assignVariation(
-        int $experimentId,
-        int $variationId,
-        int $ruleType = AssignedVariation::RULE_TYPE_UNKNOWN): void
-    {
-        $this->addVariation(new AssignedVariationImpl($experimentId, $variationId, $ruleType), true);
-    }
-
     public function setLegalConsent(bool $legalConsent): void
     {
         $this->legalConsent = $legalConsent;
@@ -192,53 +399,6 @@ class VisitorImpl implements Visitor
         return $this->mapAssignedVariation ?? [];
     }
 
-    private function processDataType(BaseData $data, bool $overwrite): void
-    {
-        switch (true) {
-            case $data instanceof CustomData:
-                $this->addCustomData($data, $overwrite);
-                break;
-            case $data instanceof PageView:
-                $this->addPageView($data);
-                break;
-            case $data instanceof PageViewVisit:
-                $this->addPageViewVisit($data);
-                break;
-            case $data instanceof Device:
-                $this->setDevice($data, $overwrite);
-                break;
-            case $data instanceof Browser:
-                $this->setBrowser($data, $overwrite);
-                break;
-            case $data instanceof Cookie:
-                $this->setCookie($data);
-                break;
-            case $data instanceof OperatingSystem:
-                $this->setOperatingSystem($data, $overwrite);
-                break;
-            case $data instanceof Geolocation:
-                $this->setGeolocation($data, $overwrite);
-                break;
-            case $data instanceof KcsHeat:
-                $this->setKcsHeat($data);
-                break;
-            case $data instanceof VisitorVisits:
-                $this->setVisitorVisits($data);
-                break;
-            case $data instanceof Conversion:
-                $this->addConversion($data);
-                break;
-            case $data instanceof UserAgent:
-                $this->setUserAgent($data);
-                break;
-            case $data instanceof AssignedVariation:
-                $this->addVariation($data, $overwrite);
-                break;
-            default:
-                break;
-        }
-    }
-
     private function &getOrCreateMapCustomData(): array
     {
         if (!isset($this->mapCustomData)) {
@@ -247,7 +407,7 @@ class VisitorImpl implements Visitor
         return $this->mapCustomData;
     }
 
-    private function addCustomData(CustomData $customData, bool $overwrite): void
+    public function addCustomData(CustomData $customData, bool $overwrite): void
     {
         if ($overwrite || !array_key_exists($customData->getId(), $this->getOrCreateMapCustomData())) {
             $this->getOrCreateMapCustomData()[$customData->getId()] = $customData;
@@ -262,7 +422,7 @@ class VisitorImpl implements Visitor
         return $this->mapPageView;
     }
 
-    private function addPageView(PageView $pageView): void
+    public function addPageView(PageView $pageView): void
     {
         $url = $pageView->getUrl();
         $mapPageView = &$this->getOrCreateMapPageView();
@@ -274,7 +434,7 @@ class VisitorImpl implements Visitor
         }
     }
 
-    private function addPageViewVisit(PageViewVisit $pageViewVisit): void
+    public function addPageViewVisit(PageViewVisit $pageViewVisit): void
     {
         $url = $pageViewVisit->getPageView()->getUrl();
         $mapPageView = &$this->getOrCreateMapPageView();
@@ -286,45 +446,45 @@ class VisitorImpl implements Visitor
         }
     }
 
-    private function setDevice(Device $device, bool $overwrite): void
+    public function setDevice(Device $device, bool $overwrite): void
     {
         if ($overwrite || (($this->device ?? null) === null)) {
             $this->device = $device;
         }
     }
 
-    private function setBrowser(Browser $browser, bool $overwrite): void
+    public function setBrowser(Browser $browser, bool $overwrite): void
     {
         if ($overwrite || (($this->browser ?? null) === null)) {
             $this->browser = $browser;
         }
     }
 
-    private function setCookie(Cookie $cookie): void
+    public function setCookie(Cookie $cookie): void
     {
         $this->cookie = $cookie;
     }
 
-    private function setOperatingSystem(OperatingSystem $operatingSystem, bool $overwrite): void
+    public function setOperatingSystem(OperatingSystem $operatingSystem, bool $overwrite): void
     {
         if ($overwrite || (($this->operatingSystem ?? null) === null)) {
             $this->operatingSystem = $operatingSystem;
         }
     }
 
-    private function setGeolocation(Geolocation $geolocation, bool $overwrite): void
+    public function setGeolocation(Geolocation $geolocation, bool $overwrite): void
     {
         if ($overwrite || (($this->geolocation ?? null) === null)) {
             $this->geolocation = $geolocation;
         }
     }
 
-    private function setKcsHeat(KcsHeat $kcsHeat): void
+    public function setKcsHeat(KcsHeat $kcsHeat): void
     {
         $this->kcsHeat = $kcsHeat;
     }
 
-    private function setVisitorVisits(VisitorVisits $visitorVisits): void
+    public function setVisitorVisits(VisitorVisits $visitorVisits): void
     {
         $this->visitorVisits = $visitorVisits;
     }
@@ -337,12 +497,12 @@ class VisitorImpl implements Visitor
         return $this->collectionConversion;
     }
 
-    private function addConversion(Conversion $conversion): void
+    public function addConversion(Conversion $conversion): void
     {
         $this->getOrCreateCollectionConversion()[] = $conversion;
     }
 
-    private function setUserAgent(UserAgent $userAgent): void
+    public function setUserAgent(UserAgent $userAgent): void
     {
         $this->userAgent = $userAgent->getValue();
     }
@@ -355,7 +515,7 @@ class VisitorImpl implements Visitor
         return $this->mapAssignedVariation;
     }
 
-    private function addVariation(AssignedVariation $variation, bool $overwrite = true): void
+    public function addVariation(AssignedVariation $variation, bool $overwrite = true): void
     {
         if ($overwrite || !array_key_exists($variation->getExperimentId(), $this->getOrCreateMapAssignedVariation())) {
             $this->getOrCreateMapAssignedVariation()[$variation->getExperimentId()] = $variation;

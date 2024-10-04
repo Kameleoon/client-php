@@ -35,4 +35,9 @@ class Device extends Sendable implements Data
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
     }
+
+    public function __toString(): string
+    {
+        return "Device{deviceType:'$this->type'}";
+    }
 }

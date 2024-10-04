@@ -64,4 +64,13 @@ class AssignedVariationImpl extends Sendable implements AssignedVariation
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
     }
+
+    public function __toString(): string {
+        return "AssignedVariation{" .
+            "experimentId:" . $this->experimentId .
+            ",variationId:" . $this->variationId .
+            ",assignmentDate:" . $this->assignmentDate .
+            ",ruleType:" . $this->ruleType .
+            "}";
+    }
 }

@@ -51,4 +51,9 @@ class OperatingSystem extends Sendable implements Data
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
     }
+
+    public function __toString(): string
+    {
+        return "OperatingSystem{type:" . $this->type . "}";
+    }
 }

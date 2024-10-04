@@ -14,4 +14,12 @@ class VariationByExposition
         $this->variationId = $variationByExposition->variationId;
         $this->exposition = $variationByExposition->exposition;
     }
+
+    public function __toString(): string {
+        return "VariationByExposition{" .
+            "exposition:" . $this->exposition .
+            ",variationKey:'" . $this->variationKey .
+            "',variationId:" . $this->variationId .
+            "}";
+    }
 }

@@ -36,18 +36,4 @@ interface VisitorManager extends IteratorAggregate
      * @return Visitor A visitor the data was added for.
      */
     public function addData(string $visitorCode, BaseData ...$data): Visitor;
-
-    /**
-     * Gets custom data info.
-     *
-     * @return ?CustomDataInfo
-     */
-    public function getCustomDataInfo(): ?CustomDataInfo;
-
-    /**
-     * Sets or removes custom data info.
-     *
-     * @param ?CustomDataInfo $value
-     */
-    public function setCustomDataInfo(?CustomDataInfo $value): void;
 }

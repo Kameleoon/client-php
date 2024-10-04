@@ -2,6 +2,7 @@
 
 namespace Kameleoon\Data;
 
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\QueryBuilder;
 use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
@@ -13,13 +14,14 @@ class CustomData extends Sendable implements Data
 
     private $id;
     private array $values;
-    private bool $isMappingIdentifier;
 
     public function __construct(int $id, string ...$values)
     {
         $this->id = $id;
         $this->values = $values;
-        $this->isMappingIdentifier = false;
+        if (empty($values)) {
+            KameleoonLogger::error("Created a custom data $id with no values. It will not be tracked.");
+        }
     }
 
     public function getId()
@@ -30,16 +32,6 @@ class CustomData extends Sendable implements Data
     public function getValues(): array
     {
         return $this->values;
-    }
-
-    public function getIsMappingIdentifier(): bool
-    {
-        return $this->isMappingIdentifier;
-    }
-
-    public function setIsMappingIdentifier(bool $value): void
-    {
-        $this->isMappingIdentifier = $value;
     }
 
     public function getQuery(): string
@@ -60,9 +52,11 @@ class CustomData extends Sendable implements Data
             new QueryParam(QueryParams::OVERWRITE, "true"),
             new QueryParam(QueryParams::NONCE, $this->getNonce()),
         );
-        if ($this->isMappingIdentifier) {
-            $qb->append(new QueryParam(QueryParams::MAPPING_IDENTIFIER, "true"));
-        }
         return (string)$qb;
+    }
+
+    public function __toString(): string
+    {
+        return "CustomData{id:$this->id,values:" . json_encode($this->values) . "}";
     }
 }

@@ -1,10 +1,13 @@
 <?php
 namespace Kameleoon\Targeting;
 
+use Kameleoon\Logging\KameleoonLogger;
+
 class TargetingEngine
 {
     public static function checkTargetingTree($targetingTree, callable $getTargetedData)
     {
+        KameleoonLogger::debug("CALL: TargetingEngine::checkTargetingTree(targetingTree, getTargetedData)");
         $result = null;
 
 		// checking if the tree has no targeting condition
@@ -133,6 +136,8 @@ class TargetingEngine
                 }
 			}
 		}
+        KameleoonLogger::debug(
+            "RETURN: TargetingEngine::checkTargetingTree(targetingTree, getTargetedData) -> (result: %s)", $result);
 		// returning result
 		return $result;
 	}
@@ -164,7 +169,7 @@ class TargetingEngine
         {
             $result = true;
         }
-
+        KameleoonLogger::debug("Targeting condition with id %s is %s", $targetingCondition->getId(), $result);
 		// returning result
 		return $result;
 	}

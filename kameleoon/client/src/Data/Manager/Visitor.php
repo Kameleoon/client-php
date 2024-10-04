@@ -53,21 +53,21 @@ interface Visitor
      * @return array A map where the keys are strings and the values are pairs consisting of a PageView object
      *         and an integer.
      */
-    public function getPageViewVisit(): array;
+    public function getPageViewVisits(): array;
 
     /**
      * Retrieves a collection of PageView objects representing the visitor's page views.
      *
      * @return Generator A collection of PageView objects.
      */
-    public function getPageView(): Generator;
+    public function getPageViews(): Generator;
 
     /**
      * Retrieves a collection of Conversion objects representing visitor conversions.
      *
      * @return array A collection of Conversion objects.
      */
-    public function getConversion(): array;
+    public function getConversions(): array;
 
     /**
      * Retrieves a collection of unsent Conversion objects representing visitor conversions that have
@@ -75,7 +75,7 @@ interface Visitor
      *
      * @return Generator A collection of unsent Conversion objects.
      */
-    public function getUnsentConversion(): Generator;
+    public function getUnsentConversions(): Generator;
 
     /**
      * Retrieves information about the device used by the visitor, if available.
@@ -187,4 +187,18 @@ interface Visitor
      * @param ?string $value
      */
     public function setMappingIdentifier(?string $value): void;
+
+    /**
+     * Returns if the visitor code is a unique identifier.
+     *
+     * @return bool $value
+     */
+    public function isUniqueIdentifier(): bool;
+
+    /**
+     * Creates new visitor which shares common data with the current visitor.
+     * 
+     * @return Visitor $newVisitor
+     */
+    public function clone(): Visitor;
 }

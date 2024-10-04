@@ -7,6 +7,7 @@ namespace Kameleoon\Configuration;
 use Exception;
 use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureNotFound;
+use Kameleoon\Logging\KameleoonLogger;
 
 class DataFile
 {
@@ -18,25 +19,18 @@ class DataFile
     private array $ruleBySegmentId;
     private array $variationById;
     private CustomDataInfo $customDataInfo;
-
-    private bool $isLoaded = false;
+    private array $experimentIdsWithJsCssVariable;
 
     public function __construct(object $jsonDataFile, ?string $environment = null)
     {
+        KameleoonLogger::debug(
+            "CALL: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
         $this->environment = $environment;
         $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
         $this->settings = new Settings($jsonDataFile);
         $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
-    }
-
-    public function setLoaded()
-    {
-        $this->isLoaded = true;
-    }
-
-    public function isLoaded()
-    {
-        return $this->isLoaded;
+        KameleoonLogger::debug(
+            "RETURN: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
     }
 
     public function getFeatureFlags(): array
@@ -64,26 +58,46 @@ class DataFile
 
     public function getFeatureFlagById(int $featureFlagId): ?FeatureFlag
     {
+        KameleoonLogger::debug("CALL: DataFile->getFeatureFlagById(featureFlagId: %s)", $featureFlagId);
         if (!isset($this->featureFlagById)) {
             $this->featureFlagById = $this->collectFeatureFlagById();
         }
-        return $this->featureFlagById[$featureFlagId] ?? null;
+        $featureFlag = $this->featureFlagById[$featureFlagId] ?? null;
+        KameleoonLogger::debug("RETURN: DataFile->getFeatureFlagById(featureFlagId: %s) -> (featureFlag: %s)",
+            $featureFlagId, $featureFlag);
+        return $featureFlag;
     }
 
     public function getRuleBySegmentId(int $segmentId): ?Rule
     {
+        KameleoonLogger::debug("CALL: DataFile->getRuleBySegmentId(segmentId: %s)", $segmentId);
         if (!isset($this->ruleBySegmentId)) {
             $this->ruleBySegmentId = $this->collectRuleBySegmentId();
         }
-        return $this->ruleBySegmentId[$segmentId] ?? null;
+        $rule = $this->ruleBySegmentId[$segmentId] ?? null;
+        KameleoonLogger::debug("RETURN: DataFile->getRuleBySegmentId(segmentId: %s) -> (rule: %s)",
+            $segmentId, $rule);
+        return $rule;
     }
 
     public function getVariation(int $variationId): ?VariationByExposition
     {
+        KameleoonLogger::debug("CALL: DataFile->getVariation(variationId: %s)", $variationId);
         if (!isset($this->variationById)) {
             $this->variationById = $this->collectVariationById();
         }
-        return $this->variationById[$variationId] ?? null;
+        $variation = $this->variationById[$variationId] ?? null;
+        KameleoonLogger::debug("RETURN: DataFile->getVariation(variationId: %s) -> (featureFlag: %s)",
+            $variationId, $variation);
+        return $variation;
+    }
+
+    public function hasExperimentJsCssVariable(int $experimentId): bool
+    {
+        if (!isset($this->experimentIdsWithJsCssVariable)) {
+            $this->experimentIdsWithJsCssVariable = $this->collectExperimentIdsWithJsCssVariable();
+        }
+        return array_key_exists($experimentId, $this->experimentIdsWithJsCssVariable);
     }
 
     private static function createFromJSON($json, $key, $class): array
@@ -94,7 +108,7 @@ class DataFile
                 $arrayObj[$obj->$key] = new $class($obj);
             }
         } catch (Exception $e) {
-            error_log("Data file configuration cannot be parsed: " . $e->getMessage());
+            KameleoonLogger::error("Data file configuration cannot be parsed: " . $e->getMessage());
             return [];
         }
         return $arrayObj;
@@ -102,6 +116,7 @@ class DataFile
 
     public function getFeatureFlag(string $featureKey): FeatureFlag
     {
+        KameleoonLogger::debug("CALL: DataFile->getFeatureFlag(featureKey: '%s')", $featureKey);
         $featureFlag = $this->featureFlags[$featureKey] ?? null;
         if ($featureFlag === null) {
             throw new FeatureNotFound("Feature {$featureKey} not found");
@@ -110,6 +125,8 @@ class DataFile
             $environment = $this->environment ?? 'default';
             throw new FeatureEnvironmentDisabled("Feature '{$featureKey}' is disabled for {$environment} environment");
         }
+        KameleoonLogger::debug("RETURN: DataFile->getFeatureFlag(featureKey: '%s') -> (featureFlag: %s)",
+            $featureKey, $featureFlag);
         return $featureFlag;
     }
 
@@ -158,5 +175,43 @@ class DataFile
             }
         }
         return $variationById;
+    }
+
+    private function collectExperimentIdsWithJsCssVariable(): array
+    {
+        $experimentIdsWithJSOrCSS = [];
+        foreach ($this->featureFlags as $featureFlag) {
+            $hasFeatureFlagVariableJsCss = $this->hasFeatureFlagVariableJsCss($featureFlag);
+            foreach ($featureFlag->rules as $rule) {
+                if ($hasFeatureFlagVariableJsCss) {
+                    $experimentIdsWithJSOrCSS[$rule->experimentId] = true;
+                }
+            }
+        }
+        return $experimentIdsWithJSOrCSS;
+    }
+
+    private function hasFeatureFlagVariableJsCss(FeatureFlag $featureFlag): bool
+    {
+        $variations = $featureFlag->getVariations();
+        if (!empty($variations)) {
+            $firstVariation = $variations[0];
+            foreach ($firstVariation->variables as $variable) {
+                if ($variable->type === "JS" || $variable->type === "CSS") {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public function __toString(): string
+    {
+        return sprintf(
+            "DataFile{environment:'%s',featureFlags:%d,settings:%s}",
+            $this->environment,
+            count($this->featureFlags),
+            (string) $this->settings,
+        );
     }
 }

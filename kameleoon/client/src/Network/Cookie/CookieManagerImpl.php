@@ -4,8 +4,9 @@ namespace Kameleoon\Network\Cookie;
 
 use Kameleoon\CookieOptions;
 use Kameleoon\Exception\ConfigException;
-use Kameleoon\Helpers\RandomString;
 use Kameleoon\Helpers\VisitorCodeManager;
+use Kameleoon\Logging\KameleoonLogger;
+use Kameleoon\Managers\Data\DataManager;
 
 class CookieManagerImpl implements CookieManager
 {
@@ -16,22 +17,22 @@ class CookieManagerImpl implements CookieManager
     const REMOVE_COOKIE_SECONDS = -3600;
 
     private CookieOptions $cookieOptions;
-    private bool $isConsentRequired = false;
     private ICookieProxy $cookieProxy;
+    private DataManager $dataManager;
 
-    public function __construct(CookieOptions $cookieOptions, ?ICookieProxy $cookieProxy = null)
+    public function __construct(
+        DataManager $dataManager, CookieOptions $cookieOptions, ?ICookieProxy $cookieProxy = null)
     {
+        KameleoonLogger::debug("CALL: new CookieManager(dataManager, cookieOptions, cookieProxy)");
+        $this->dataManager = $dataManager;
         $this->cookieOptions = $cookieOptions;
         $this->cookieProxy = $cookieProxy ?? new CookieProxy();
-    }
-
-    public function setConsentRequired(bool $consentRequired): void
-    {
-        $this->isConsentRequired = $consentRequired;
+        KameleoonLogger::debug("RETURN: new CookieManager(dataManager, cookieOptions, cookieProxy)");
     }
 
     public function getOrAdd(?string $visitorCode = null)
     {
+        KameleoonLogger::debug("CALL: CookieManager->getOrAdd(visitorCode: '%s')", $visitorCode);
         $visitorCode = $this->getFromCookie() ?? $visitorCode;
 
         if ($visitorCode === null) {
@@ -42,10 +43,15 @@ class CookieManagerImpl implements CookieManager
             throw new ConfigException('Domain is required');
         }
 
-        if (!$this->isConsentRequired) {
+        if (!$this->dataManager->doesVisitorCodeManagementRequireConsent()) {
             $this->add($visitorCode);
         }
 
+        KameleoonLogger::debug(
+            "RETURN: CookieManager->getOrAdd(visitorCode: '%s') -> (visitorCode: '%s')",
+            $visitorCode,
+            $visitorCode
+        );
         return $visitorCode;
     }
 
@@ -60,19 +66,23 @@ class CookieManagerImpl implements CookieManager
 
     private function add(string $visitorCode): void
     {
+        KameleoonLogger::debug("CALL: CookieManager->add(visitorCode: '%s')", $visitorCode);
         if (version_compare(phpversion(), '7.3', '<')) {
             $this->setCookiePriorPHP73($visitorCode);
         } else {
             $this->setCookie($visitorCode);
         }
+        KameleoonLogger::debug("RETURN: CookieManager->add(visitorCode: '%s')", $visitorCode);
     }
 
     private function remove(): void
     {
-        if ($this->isConsentRequired) {
+        KameleoonLogger::debug("CALL: CookieManager->remove()");
+        if ($this->dataManager->doesVisitorCodeManagementRequireConsent()) {
             // time() - 3600 to mark cookie as expired
             $this->cookieProxy->setCookie(self::KAMELEOON_VISITOR_CODE, '', time() + self::REMOVE_COOKIE_SECONDS, '/');
         }
+        KameleoonLogger::debug("RETURN: CookieManager->remove()");
     }
 
     private function getFromCookie(): ?string
@@ -111,33 +121,5 @@ class CookieManagerImpl implements CookieManager
             "samesite" => $this->cookieOptions->getSameSite()
         );
         $this->cookieProxy->setCookieArray(self::KAMELEOON_VISITOR_CODE, $visitorCode, $cookieOptions);
-    }
-}
-
-class CookieProxy implements ICookieProxy
-{
-    public function setCookieArray(string $name, $value = '', array $options = []): bool
-    {
-        return setcookie($name, $value, $options);
-    }
-
-    public function setCookie(
-        string $name,
-        $value = "",
-        $expires_or_options = 0,
-        $path = "",
-        $domain = "",
-        $secure = false,
-        $httponly = false
-    ): bool {
-        return setcookie($name, $value, $expires_or_options, $path, $domain, $secure, $httponly);
-    }
-
-    public function getCookie(string $name): ?string
-    {
-        if (isset($_COOKIE[$name])) {
-            return $_COOKIE[$name];
-        }
-        return null;
     }
 }

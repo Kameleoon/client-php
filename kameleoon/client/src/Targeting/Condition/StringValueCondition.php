@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kameleoon\Targeting\Condition;
 
+use Kameleoon\Logging\KameleoonLogger;
+
 class StringValueCondition extends TargetingCondition
 {
     protected string $conditionValue;
@@ -41,7 +43,7 @@ class StringValueCondition extends TargetingCondition
                 return (bool)(preg_match($pattern, $value));
 
             default:
-                error_log("Unexpected comparing operation for " . $this->getType() . " condition: " . $this->operator);
+                KameleoonLogger::error("Unexpected comparing operation for " . $this->getType() . " condition: " . $this->operator);
                 return false;
         }
     }

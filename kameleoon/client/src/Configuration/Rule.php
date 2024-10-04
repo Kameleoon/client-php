@@ -47,4 +47,8 @@ class Rule extends TargetingObject
     {
         return $this->type === Rule::EXPERIMENTATION;
     }
+
+    public function __toString(): string {
+        return "Rule{id:$this->id,exposition:$this->exposition}";
+    }
 }

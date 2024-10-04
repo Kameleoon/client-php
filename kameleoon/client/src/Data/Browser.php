@@ -57,4 +57,8 @@ class Browser extends Sendable implements Data
         }
         return (string)$qb;
     }
+
+    public function __toString(): string {
+        return "Browser{browserType:" . $this->browserType . ",version:" . $this->version . "}";
+    }
 }

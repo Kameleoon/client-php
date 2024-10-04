@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Kameleoon;
 
 use Kameleoon\Exception\ConfigCredentialsInvalid;
+use Kameleoon\Helpers\Domain;
+use Kameleoon\Helpers\StringHelper;
+use Kameleoon\Logging\KameleoonLogger;
 
 class KameleoonClientConfig
 {
@@ -42,22 +45,31 @@ class KameleoonClientConfig
         $this->clientSecret = $clientSecret;
         $this->kameleoonWorkDir = $kameleoonWorkDir;
         if ($refreshIntervalMinute <= 0) {
-            error_log("Kameleoon SDK: Refresh interval must have positive value. Default refresh interval ("
+            KameleoonLogger::warning("Refresh interval must have positive value. Default refresh interval ("
                 . self::DEFAULT_REFRESH_INTERVAL_MINUTES . " minutes) is applied");
             $refreshIntervalMinute = self::DEFAULT_REFRESH_INTERVAL_MINUTES;
         }
         $this->refreshIntervalSecond = $refreshIntervalMinute * self::SECONDS_IN_MINUTE;
         if ($defaultTimeoutMillisecond <= 0) {
-            error_log("Kameleoon SDK: Default timeout must have positive value. Default timeout ("
+            KameleoonLogger::warning("Default timeout must have positive value. Default timeout ("
                 . self::DEFAULT_TIMEOUT_MILLISECONDS . " ms) is applied");
             $defaultTimeoutMillisecond = self::DEFAULT_TIMEOUT_MILLISECONDS;
         }
         $this->defaultTimeoutMillisecond = $defaultTimeoutMillisecond;
         $this->debugMode = $debugMode;
-        $this->cookieOptions = $cookieOptions ?? new CookieOptions();
-        if (empty($this->cookieOptions->getTopLevelDomain())) {
-            error_log("Kameleoon SDK: Setting parameter 'topLevelDomain' (top_level_domain) is strictly "
+        if ($cookieOptions == null || empty($cookieOptions->getTopLevelDomain())) {
+            KameleoonLogger::warning("Setting parameter 'topLevelDomain' (top_level_domain) is strictly "
                 . "recommended otherwise you may have problems when using subdomains.");
+        }
+        if ($cookieOptions == null) {
+            $this->cookieOptions = new CookieOptions();
+        } else {
+            $this->cookieOptions = new CookieOptions(
+                Domain::validateTopLevelDomain($cookieOptions->getTopLevelDomain()),
+                $cookieOptions->getSecure(),
+                $cookieOptions->getHttpOnly(),
+                $cookieOptions->getSameSite()
+            );
         }
         $this->environment = $environment;
     }
@@ -128,6 +140,18 @@ class KameleoonClientConfig
         string $sameSite = CookieOptions::DEFAULT_SAMESITE
     ) {
         return new CookieOptions($topLevelDomain, $secure, $httpOnly, $sameSite);
+    }
+
+    public function __toString()
+    {
+        return sprintf(
+            "KameleoonClientConfig{refreshInterval:%s,defaultTimeout:%s,environment:'%s',clientId:'%s',clientSecret:'%s'}",
+            $this->refreshIntervalSecond,
+            $this->defaultTimeoutMillisecond,
+            $this->environment,
+            StringHelper::secret($this->clientId),
+            StringHelper::secret($this->clientSecret)
+        );
     }
 }
 

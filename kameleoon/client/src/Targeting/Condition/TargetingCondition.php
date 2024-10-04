@@ -12,10 +12,13 @@ abstract class TargetingCondition
 
     private bool $include;
 
+    private int $id;
+
     abstract public function check($data): bool;
 
     public function __construct($conditionData)
     {
+        $this->id = $conditionData->id ?? self::NON_EXISTENT_IDENTIFIER;
         $this->type = $conditionData->targetingType ?? "";
         $this->include = $conditionData->isInclude ?? true;
     }
@@ -28,5 +31,10 @@ abstract class TargetingCondition
     public function getInclude(): bool
     {
         return $this->include;
+    }
+
+    public function getId(): int
+    {
+        return $this->id;
     }
 }

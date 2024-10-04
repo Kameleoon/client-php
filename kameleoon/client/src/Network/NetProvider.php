@@ -9,6 +9,8 @@ interface NetProvider
     public function callSync(SyncRequest $request): Response;
     // There is no async request in PHP SDK. This type of requests will be be performed with background daemon.
     public function callAsync(AsyncRequest $request): string;
+
+    public function getRequestFilePathBase(): string;
 }
 
 final class ResponseContentType
@@ -35,6 +37,15 @@ class Response
     {
         return ($this->code !== null) && ((intdiv($this->code, 100) === 2) || ($this->code === 403));
     }
+
+    public function __toString(): string
+    {
+        return "HttpResponse{" .
+            "Code:" . ($this->code ?? 'null') .
+            ",Reason:" . ($this->error ?? 'null') .
+            ",Body:" . json_encode($this->body) .
+            "}";
+    }
 }
 
 abstract class Request
@@ -60,6 +71,31 @@ abstract class Request
         $this->headers = $headers;
         $this->body = $body;
         $this->isJwtRequired = $isJwtRequired;
+    }
+
+    public function __toString(): string
+    {
+        $headers = '';
+        if ($this->headers !== null) {
+            foreach ($this->headers as $header) {
+                $headers .= $header . ",";
+            }
+        }
+        $body = 'null';
+        if ($this->body !== null) {
+            if (is_string($this->body) && strpos($this->body, 'grant_type=client_credentials') === 0) {
+                $body = '****';
+            } else {
+                $body = $this->body;
+            }
+        }
+
+        return "HttpRequest{" .
+            "Method:'" . $this->httpMethod .
+            "',Url:'" . $this->url .
+            "',Headers:{" . $headers .
+            "},Body:'" . $body .
+            "'}";
     }
 }
 

@@ -33,4 +33,21 @@ class FeatureFlag
         }, ARRAY_FILTER_USE_BOTH);
         return array_pop($arrayVariation);
     }
+
+    public function getVariations(): array
+    {
+        return $this->variations;
+    }
+
+    public function __toString(): string
+    {
+        return "FeatureFlag{" .
+            "id:" . $this->id .
+            ",featureKey:'" . $this->featureKey .
+            "',environmentEnabled:" . ($this->environmentEnabled ? 'true' : 'false') .
+            ",defaultVariationKey:'" . $this->defaultVariationKey .
+            "',rules:" . count($this->rules) .
+            "}";
+    }
+
 }

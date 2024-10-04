@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kameleoon\Configuration;
 
+use Kameleoon\Logging\KameleoonLogger;
+
 class CustomDataInfo
 {
     private const SCOPE_VISITOR = "VISITOR";
@@ -33,7 +35,7 @@ class CustomDataInfo
             }
             if ($cd->isMappingIdentifier ?? false) {
                 if ($this->mappingIdentifierIndex !== self::UNDEFINED_INDEX) {
-                    error_log("Kameleoon SDK: More than one mapping identifier is set. " .
+                    KameleoonLogger::warning("More than one mapping identifier is set. " .
                         "Undefined behavior may occur on cross-device reconciliation.");
                 }
                 $this->mappingIdentifierIndex = $cd->index ?? self::UNDEFINED_INDEX;

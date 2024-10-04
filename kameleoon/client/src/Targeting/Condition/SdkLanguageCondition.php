@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kameleoon\Targeting\Condition;
 
 use Kameleoon\Helpers\SdkVersion;
+use Kameleoon\Logging\KameleoonLogger;
 
 class SdkLanguageCondition extends TargetingCondition
 {
@@ -64,7 +65,8 @@ class SdkLanguageCondition extends TargetingCondition
                     || ($majorSdk === $majorCondition && $minorSdk < $minorCondition)
                     || ($majorSdk === $majorCondition && $minorSdk === $minorCondition && $patchSdk < $patchCondition);
             default:
-                error_log("Unexpected comparing operation for SdkLanguage condition: " . $this->operator . PHP_EOL);
+                KameleoonLogger::error("Unexpected comparing operation for 'SdkLanguage' condition: '%s'",
+                    $this->operator);
                 return false;
         }
     }

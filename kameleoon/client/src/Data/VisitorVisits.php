@@ -22,4 +22,11 @@ class VisitorVisits implements BaseData
     {
         return ($obj === null) || ($obj instanceof VisitorVisits);
     }
+
+    public function __toString(): string
+    {
+        return "VisitorVisits{" .
+            "prevVisitTimestamps:" . implode(',', $this->previousVisitTimestamps) .
+            "}";
+    }
 }

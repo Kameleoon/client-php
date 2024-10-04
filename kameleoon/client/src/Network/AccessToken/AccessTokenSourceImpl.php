@@ -2,6 +2,8 @@
 
 namespace Kameleoon\Network\AccessToken;
 
+use Kameleoon\Helpers\StringHelper;
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\NetworkManager;
 
 class AccessTokenSourceImpl implements AccessTokenSource
@@ -25,10 +27,18 @@ class AccessTokenSourceImpl implements AccessTokenSource
         string $kameleoonWorkDir,
         NetworkManager $networkManager
     ) {
+        KameleoonLogger::debug(function () use ($clientId, $clientSecret, $kameleoonWorkDir) {
+            return sprintf("CALL: new AccessTokenSourceImpl(clientId: '%s', clientSecret: '%s', kameleoonWorkDir: '%s')",
+                StringHelper::secret($clientId), StringHelper::secret($clientSecret), $kameleoonWorkDir);
+        });
         $this->clientId = $clientId;
         $this->clientSecret = $clientSecret;
         $this->accessTokenFilePath = $kameleoonWorkDir . self::ACCESS_TOKEN_FILE;
         $this->networkManager = $networkManager;
+        KameleoonLogger::debug(function () use ($clientId, $clientSecret, $kameleoonWorkDir) {
+            return sprintf("RETURN: new AccessTokenSourceImpl(clientId: '%s', clientSecret: '%s', kameleoonWorkDir: '%s')",
+                StringHelper::secret($clientId), StringHelper::secret($clientSecret), $kameleoonWorkDir);
+        });
     }
 
     public function getClientId(): string
@@ -53,6 +63,7 @@ class AccessTokenSourceImpl implements AccessTokenSource
 
     public function getToken(?int $timeout = null): ?string
     {
+        KameleoonLogger::debug("CALL: AccessTokenSource->getToken(timeout: %s)", $timeout);
         if (isset($this->cachedToken) && $this->cachedToken !== null) {
             return $this->cachedToken;
         }
@@ -63,11 +74,14 @@ class AccessTokenSourceImpl implements AccessTokenSource
                 return $token;
             }
         }
-        return $this->fetchToken($timeout);
+        $token = $this->fetchToken($timeout);
+        KameleoonLogger::debug("RETURN: AccessTokenSource->getToken(timeout: %s) -> (token: '%s')", $timeout, $token);
+        return $token;
     }
 
     private function fetchToken(?int $timeout = null): ?string
     {
+        KameleoonLogger::debug("CALL: AccessTokenSource->fetchToken(timeout: %s)", $timeout);
         if (!file_exists($this->accessTokenFilePath)) {
             $fp = fopen($this->accessTokenFilePath, "a");
             fclose($fp);
@@ -89,31 +103,39 @@ class AccessTokenSourceImpl implements AccessTokenSource
             flock($fp, LOCK_UN);
             fclose($fp);
         }
+        KameleoonLogger::debug("RETURN: AccessTokenSource->fetchToken(timeout: %s) -> (token: '%s')",
+            $timeout, $token);
         return $token;
     }
 
     private function loadToken(string $tokenInFile): ?string
     {
+        KameleoonLogger::debug("CALL: AccessTokenSource->loadToken(tokenInFile: '%s')", $tokenInFile);
         $accessTokenJson = json_decode($tokenInFile);
         if ($accessTokenJson === null) {
+            KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: null)",
+                $tokenInFile);
             return null;
         }
         $expiredAt = $accessTokenJson->{self::JWT_EXPIRES_AT_FIELD};
         if (time() < $expiredAt) {
-            return $accessTokenJson->{self::JWT_ACCESS_TOKEN_FIELD};
+            $token = $accessTokenJson->{self::JWT_ACCESS_TOKEN_FIELD};
+            KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: %s)",
+                $tokenInFile, $token);
+            return $token;
         }
+        KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: null)",
+            $tokenInFile);
         return null;
     }
 
     private function saveToken($fp, object $tokenResponse)
     {
+        KameleoonLogger::debug("CALL: AccessTokenSource->saveToken(fp: %s, tokenResponse: %s)", $fp,
+            $tokenResponse);
         if ($tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD} < self::TOKEN_EXPIRATION_GAP) {
-            error_log(
-                sprintf(
-                    "Kameleoon SDK: Access token life time (%ds) is not long enough to cache the token",
-                    $tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD}
-                )
-            );
+            KameleoonLogger::error("Access token life time (%ss) is not long enough to cache the token",
+                    $tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD});
         }
         $tokenResponse->{SELF::JWT_EXPIRES_AT_FIELD} = time() + $tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD};
         unset($tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD});
@@ -123,10 +145,13 @@ class AccessTokenSourceImpl implements AccessTokenSource
             fflush($fp);
             ftruncate($fp, ftell($fp));
         }
+        KameleoonLogger::debug("RETURN: AccessTokenSource->saveToken(fp: %s, tokenResponse: %s)", $fp,
+            $tokenResponse);
     }
 
     public function discardToken(string $token)
     {
+        KameleoonLogger::debug("CALL: AccessTokenSource->discardToken(token: '%s')", $token);
         if (($fp = fopen($this->accessTokenFilePath, "r+")) && flock($fp, LOCK_EX)) {
             $tokenFile = $this->loadToken(stream_get_contents($fp));
             if ($token == $tokenFile) {
@@ -136,5 +161,6 @@ class AccessTokenSourceImpl implements AccessTokenSource
             flock($fp, LOCK_UN);
             fclose($fp);
         }
+        KameleoonLogger::debug("RETURN: AccessTokenSource->discardToken(token: '%s')", $token);
     }
 }

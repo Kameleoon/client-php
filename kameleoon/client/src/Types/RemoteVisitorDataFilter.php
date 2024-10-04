@@ -43,4 +43,20 @@ class RemoteVisitorDataFilter
         $this->experiments = $experiments;
         $this->kcs = $kcs;
     }
+
+    public function __toString(): string
+    {
+        return "RemoteVisitorDataFilter{" .
+            "previousVisitAmount:" . $this->previousVisitAmount .
+            ",currentVisit:" . ($this->currentVisit ? 'true' : 'false') .
+            ",customData:" . ($this->customData ? 'true' : 'false') .
+            ",pageViews:" . ($this->pageViews ? 'true' : 'false') .
+            ",geolocation:" . ($this->geolocation ? 'true' : 'false') .
+            ",device:" . ($this->device ? 'true' : 'false') .
+            ",browser:" . ($this->browser ? 'true' : 'false') .
+            ",operatingSystem:" . ($this->operatingSystem ? 'true' : 'false') .
+            ",conversion:" . ($this->conversion ? 'true' : 'false') .
+            ",experiments:" . ($this->experiments ? 'true' : 'false') .
+            '}';
+    }
 }

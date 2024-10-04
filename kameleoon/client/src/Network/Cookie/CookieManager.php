@@ -5,26 +5,6 @@ namespace Kameleoon\Network\Cookie;
 interface CookieManager
 {
     /**
-     * Sets whether content is required for new visitors.
-     *
-     * This method allows you to specify whether content is required for new visitors. When content is
-     * required, it indicates that new visitor codes won't be added to response cookies.
-     *
-     * Usage example:
-     *
-     * // Set content as required for new visitors
-     * $cookieManager->setConsentRequired(true);
-     *
-     * // Set content as not required for new visitors
-     * $cookieManager->setConsentRequired(false);
-     *
-     * @param bool $consentRequired A boolean value specifying whether content is required for new visitors.
-     *        - 'true' indicates that content is required for new visitors.
-     *        - 'false' indicates that content is not required.
-     */
-    public function setConsentRequired(bool $consentRequired);
-
-    /**
      * Gets or adds a visitor code to the provided HTTP request and response.
      *
      * This method searches for a visitor code in the provided HTTP request and response objects. If a
