@@ -187,42 +187,159 @@ class KameleoonClientImpl implements KameleoonClient
     }
 
     public function isFeatureActive(string $visitorCode, string $featureKey, ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null): bool
+        ?bool $isUniqueIdentifier = null, bool $track = true): bool
     {
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->isFeatureActive(visitorCode: '%s', featureKey: '%s', timeout: %s, " .
-            "isUniqueIdentifier: %s)",
-            $visitorCode, $featureKey, $timeout, $isUniqueIdentifier,
+            "isUniqueIdentifier: %s, track: %s)",
+            $visitorCode, $featureKey, $timeout, $isUniqueIdentifier, $track,
         );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         if ($isUniqueIdentifier !== null) {
-            VisitorCodeManager::validateVisitorCode($visitorCode);
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
+        $this->loadConfiguration($timeout);
         try {
-            [, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
+            $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
+            [$variationKey, , ] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
             $isFeatureActive = $variationKey != Variation::VARIATION_OFF;
         } catch (FeatureEnvironmentDisabled $ex) {
             KameleoonLogger::debug("Feature environment disabled");
             $isFeatureActive = false;
         }
+        if ($track) {
+            $this->trackingManager->trackVisitor($visitorCode);
+        }
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->isFeatureActive(visitorCode: '%s', featureKey: '%s', timeout: %s, " .
-            "isUniqueIdentifier: %s) -> (isFeatureActive: %s)",
-            $visitorCode, $featureKey, $timeout, $isUniqueIdentifier, $isFeatureActive,
+            "isUniqueIdentifier: %s, track: %s) -> (isFeatureActive: %s)",
+            $visitorCode, $featureKey, $timeout, $isUniqueIdentifier, $track, $isFeatureActive,
         );
         return $isFeatureActive;
     }
 
+    public function getVariation(
+        string $visitorCode, string $featureKey, bool $track = true, ?int $timeout = null): Types\Variation
+    {
+        KameleoonLogger::info(
+            "CALL: KameleoonClientImpl->getVariation(visitorCode: '%s', featureKey: '%s', track: %s, timeout: %s)",
+            $visitorCode, $featureKey, $track, $timeout,
+        );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeout);
+        $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
+        [$variationKey, $varByExp, $rule] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
+        $variation = $featureFlag->getVariation($variationKey);
+        $externalVariation = self::makeExternalVariation(
+            $variationKey, $variation,
+            ($varByExp !== null) ? $varByExp->variationId : null,
+            ($rule !== null) ? $rule->experimentId : null,
+        );
+        if ($track) {
+            $this->trackingManager->trackVisitor($visitorCode);
+        }
+        KameleoonLogger::info(
+            "RETURN: KameleoonClientImpl->getVariation(visitorCode: '%s', featureKey: '%s', track: %s, timeout: %s)" .
+            " -> (variation: %s)",
+            $visitorCode, $featureKey, $track, $timeout, $externalVariation,
+        );
+        return $externalVariation;
+    }
+
+    public function getVariations(
+        string $visitorCode, bool $onlyActive = false, bool $track = true, ?int $timeout = null): array
+    {
+        KameleoonLogger::info(
+            "CALL: KameleoonClientImpl->getVariations(visitorCode: '%s', onlyActive: %s, track: %s, timeout: %s)",
+            $visitorCode, $onlyActive, $track, $timeout,
+        );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeout);
+        $variations = array();
+        foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
+            if (!$featureFlag->getEnvironmentEnabled()) {
+                continue;
+            }
+            [$variationKey, $varByExp, $rule] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
+            if ($onlyActive && ($variationKey == Variation::VARIATION_OFF)) {
+                continue;
+            }
+            $variation = $featureFlag->getVariation($variationKey);
+            $variations[$featureFlag->featureKey] = self::makeExternalVariation(
+                $variationKey, $variation,
+                ($varByExp !== null) ? $varByExp->variationId : null,
+                ($rule !== null) ? $rule->experimentId : null,
+            );
+        }
+        if ($track) {
+            $this->trackingManager->trackVisitor($visitorCode);
+        }
+        KameleoonLogger::info(
+            "RETURN: KameleoonClientImpl->getVariations(visitorCode: '%s', onlyActive: %s, track: %s, timeout: %s)" .
+            " -> (variations: %s)",
+            $visitorCode, $onlyActive, $track, $timeout, $variations,
+        );
+        return $variations;
+    }
+
+    private function getVariationInfo(
+        string $visitorCode, FeatureFlag $featureFlag, bool $track = true): array
+    {
+        KameleoonLogger::debug(
+            "CALL: KameleoonClient->getVariationInfo(visitorCode: '%s', featureFlag: %s, track: %s)",
+            $visitorCode, $featureFlag, $track,
+        );
+        [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        $variationKey = $this->calculateVariationKey($varByExp, $rule, $featureFlag->defaultVariationKey);
+        $this->saveVariation($visitorCode, $rule, $varByExp, $track);
+        KameleoonLogger::debug(
+            "RETURN: KameleoonClient->getVariationInfo(visitorCode: '%s', featureFlag: %s, track: %s)" .
+            " -> (variationKey: '%s', variationByExposition: %s, rule: %s)",
+            $visitorCode, $featureFlag, $track, $variationKey, $varByExp, $rule,
+        );
+        return [$variationKey, $varByExp, $rule];
+    }
+
+    private static function makeExternalVariation(
+        string $variationKey, ?Variation $internalVariation, ?int $variationId, ?int $experimentId): Types\Variation
+    {
+        KameleoonLogger::debug(
+            "CALL: KameleoonClient::makeExternalVariation(variationKey: '%s', internalVariation: %s, " .
+            "variationId: %s, experimentId: %s)",
+            $variationKey, $internalVariation, $variationId, $experimentId
+        );
+        $variables = array();
+        if ($internalVariation !== null) {
+            foreach ($internalVariation->variables as $variable) {
+                $variables[$variable->key] = new Variable($variable->key, $variable->type, $variable->getValue());
+            }
+        }
+        $variation = new Types\Variation($variationKey, $variationId, $experimentId, $variables);
+        KameleoonLogger::debug(
+            "RETURN: KameleoonClient::makeExternalVariation(variationKey: '%s', internalVariation: %s, " .
+            "variationId: %s, experimentId: %s) -> (variation: %s)",
+            $variationKey, $internalVariation, $variationId, $experimentId, $variation
+        );
+        return $variation;
+    }
+
+    /**
+     * @deprecated deprecated since version 4.5.0. Please use `getVariation($visitorCode, $featureKey, true)`
+     */
     public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null,
         ?bool $isUniqueIdentifier = null): string
     {
+        KameleoonLogger::info(
+            "Call of deprecated method 'getFeatureVariationKey'. " .
+            "Please, use 'getVariation(\$visitorCode, \$featureKey, true)' instead."
+        );
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->isFeatureActive(visitorCode: '%s', featureKey: '%s', timeout: %s, " .
             "isUniqueIdentifier: %s)",
             $visitorCode, $featureKey, $timeout, $isUniqueIdentifier,
         );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         if ($isUniqueIdentifier !== null) {
-            VisitorCodeManager::validateVisitorCode($visitorCode);
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
         [, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
@@ -234,6 +351,9 @@ class KameleoonClientImpl implements KameleoonClient
         return $variationKey;
     }
 
+    /**
+     * @deprecated deprecated since version 4.5.0. Please use `getVariation($visitorCode, $featureKey, true)`
+     */
     public function getFeatureVariable(
         string $visitorCode,
         string $featureKey,
@@ -242,12 +362,16 @@ class KameleoonClientImpl implements KameleoonClient
         ?bool $isUniqueIdentifier = null)
     {
         KameleoonLogger::info(
+            "Call of deprecated method 'getFeatureVariable'. " .
+            "Please, use 'getVariation(\$visitorCode, \$featureKey, true)' instead."
+        );
+        KameleoonLogger::info(
             "CALL: KameleoonClientImpl->getFeatureVariable(visitorCode: '%s', featureKey: '%s', " .
             "variableName: '%s', timeout: %s, isUniqueIdentifier: %s)",
             $visitorCode, $featureKey, $variableName, $timeout, $isUniqueIdentifier,
         );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
         if ($isUniqueIdentifier !== null) {
-            VisitorCodeManager::validateVisitorCode($visitorCode);
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
         [$featureFlag, $variationKey] = $this->getFeatureVariationKeyInternal($visitorCode, $featureKey, $timeout);
@@ -274,8 +398,15 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
+    /**
+     * @deprecated deprecated since version 4.5.0. Please use `getVariation($visitorCode, $featureKey, false)`
+     */
     public function getFeatureVariationVariables(string $featureKey, string $variationKey, ?int $timeout = null): array
     {
+        KameleoonLogger::info(
+            "Call of deprecated method 'getFeatureVariationVariables'. " .
+            "Please, use 'getVariation(\$visitorCode, \$featureKey, false)' instead."
+        );
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->getFeatureVariationVariables(featureKey: '%s', variationKey: '%s', " .
             "timeout: %s)",
@@ -312,6 +443,9 @@ class KameleoonClientImpl implements KameleoonClient
     public function getActiveFeatureListForVisitor(string $visitorCode, ?int $timeout = null): array
     {
         KameleoonLogger::info(
+            "Call of deprecated method 'getActiveFeatureListForVisitor'. Please, use 'getActiveFeatures' instead."
+        );
+        KameleoonLogger::info(
             "CALL: KameleoonClientImpl->getActiveFeatureListForVisitor(visitorCode: '%s', timeout: %s)",
             $visitorCode, $timeout,
         );
@@ -332,8 +466,15 @@ class KameleoonClientImpl implements KameleoonClient
         return $arrayKeys;
     }
 
+    /**
+     * @deprecated deprecated since version 4.5.0. Please use `getVariations($visitorCode, true, false)`
+     */
     public function getActiveFeatures(string $visitorCode, ?int $timeout = null): array
     {
+        KameleoonLogger::info(
+            "Call of deprecated method 'getActiveFeatures'. " .
+            "Please, use 'getVariations(\$visitorCode, true, false)' instead."
+        );
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->getActiveFeatures(visitorCode: '%s', timeout: %s)",
             $visitorCode, $timeout,
@@ -487,9 +628,7 @@ class KameleoonClientImpl implements KameleoonClient
         $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
         [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
         $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
-        $experimentId = !is_null($rule) ? $rule->experimentId : null;
-        $variationId = !is_null($variation) ? $variation->variationId : null;
-        $this->saveVariation($visitorCode, $experimentId, $variationId, $rule !== null && $rule->isTargetedDelivery());
+        $this->saveVariation($visitorCode, $rule, $variation);
         $this->trackingManager->trackVisitor($visitorCode);
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->getFeatureVariationKeyInternal(visitorCode: '%s', featureKey: '%s', " .
@@ -526,25 +665,28 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function saveVariation(
         string $visitorCode,
-        ?int $experimentId,
-        ?int $variationId,
-        bool $isTargetedDelivery)
+        ?Rule $rule,
+        ?VariationByExposition $varByExp,
+        bool $track = true): void
     {
-        KameleoonLogger::debug(
-            "CALL: KameleoonClientImpl->saveVariation(visitorCode: '%s', experimentId: %s, variationId: %s, " .
-            "isTargetedDelivery: %s)", $visitorCode, $experimentId, $variationId, $isTargetedDelivery,
-        );
-        if (!is_null($experimentId) && !is_null($variationId)) {
-            $this->visitorManager->getOrCreateVisitor($visitorCode)->assignVariation(
-                $experimentId,
-                $variationId,
-                $isTargetedDelivery ?
-                    AssignedVariation::RULE_TYPE_TARGETED_DELIVERY : AssignedVariation::RULE_TYPE_EXPERIMENTATION
-            );
+        $experimentId = ($rule !== null) ? $rule->experimentId : null;
+        $variationId = ($varByExp !== null) ? $varByExp->variationId : null;
+        if (($experimentId === null) || ($variationId === null)) {
+            return;
         }
         KameleoonLogger::debug(
-            "RETURN: KameleoonClientImpl->saveVariation(visitorCode: '%s', experimentId: %s, variationId: %s, " .
-            "isTargetedDelivery: %s)", $visitorCode, $experimentId, $variationId, $isTargetedDelivery,
+            "CALL: KameleoonClientImpl->saveVariation(visitorCode: '%s', rule: %s, varByExp: %s, track: %s)",
+            $visitorCode, $rule, $varByExp, $track,
+        );
+        $ruleType = AssignedVariation::convertLiteralRuleTypeToEnum($rule->type);
+        $asVariation = new AssignedVariation($experimentId, $variationId, $ruleType);
+        if (!$track) {
+            $asVariation->markAsSent();
+        }
+        $this->visitorManager->addData($visitorCode, $asVariation);
+        KameleoonLogger::debug(
+            "RETURN: KameleoonClientImpl->saveVariation(visitorCode: '%s', rule: %s, varByExp: %s, track: %s)",
+            $visitorCode, $rule, $varByExp, $track,
         );
     }
 
@@ -738,7 +880,7 @@ class KameleoonClientImpl implements KameleoonClient
 
     private function setUniqueIdentifier(string $visitorCode, bool $isUniqueIdentifier): void
     {
-        KameleoonLogger::warning(
+        KameleoonLogger::info(
             "The 'isUniqueIdentifier' parameter is deprecated. Please, add 'UniqueIdentifier' to a visitor instead."
         );
         $this->visitorManager->addData($visitorCode, new Data\UniqueIdentifier($isUniqueIdentifier));

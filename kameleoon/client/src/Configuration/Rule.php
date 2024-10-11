@@ -4,8 +4,8 @@ namespace Kameleoon\Configuration;
 
 class Rule extends TargetingObject
 {
-    private const EXPERIMENTATION = "EXPERIMENTATION";
-    private const TARGETED_DELIVERY = "TARGETED_DELIVERY";
+    public const EXPERIMENTATION = "EXPERIMENTATION";
+    public const TARGETED_DELIVERY = "TARGETED_DELIVERY";
 
     public $order;
     public $id;

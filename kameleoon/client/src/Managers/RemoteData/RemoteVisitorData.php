@@ -15,7 +15,6 @@ use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\PageView;
 use Kameleoon\Data\VisitorVisits;
 use Kameleoon\Data\Manager\AssignedVariation;
-use Kameleoon\Data\Manager\AssignedVariationImpl;
 use Kameleoon\Data\Manager\PageViewVisit;
 
 class RemoteVisitorData
@@ -148,7 +147,7 @@ class RemoteVisitorData
             if (!array_key_exists($expId, $this->experiments)) {
                 $varId = $data->variationId ?? 0;
                 $ts = $experimentEvent->time ?? 0;
-                $variation = new AssignedVariationImpl($expId, $varId, AssignedVariation::RULE_TYPE_UNKNOWN, $ts);
+                $variation = new AssignedVariation($expId, $varId, AssignedVariation::RULE_TYPE_UNKNOWN, $ts);
                 $this->experiments[$expId] = $variation;
             }
         }

@@ -173,7 +173,7 @@ class VisitorImpl implements Visitor
         int $variationId,
         int $ruleType = AssignedVariation::RULE_TYPE_UNKNOWN): void
     {
-        $this->data->addVariation(new AssignedVariationImpl($experimentId, $variationId, $ruleType), true);
+        $this->data->addVariation(new AssignedVariation($experimentId, $variationId, $ruleType), true);
     }
 
     public function setLegalConsent(bool $legalConsent): void

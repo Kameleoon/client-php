@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 namespace Kameleoon\Types;
 
+use Kameleoon\Configuration;
+use Kameleoon\Helpers\StringHelper;
+
 class Variation
 {
     /**
@@ -39,4 +42,16 @@ class Variation
         $this->variables = $variables;
     }
 
+    /**
+     * @return bool `true` if the variation is active, otherwise `false`.
+     */
+    public function isActive(): bool
+    {
+        return $this->key != Configuration\Variation::VARIATION_OFF;
+    }
+
+    public function __toString(): string {
+        $variables = StringHelper::objectToString($this->variables);
+        return "Variation{key:'$this->key',id:$this->id,experimentId:$this->experimentId,variables:$variables}";
+    }
 }

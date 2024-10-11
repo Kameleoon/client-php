@@ -26,4 +26,9 @@ class Variation
     {
         return $this->variables[$key] ?? null;
     }
+
+    public function __toString(): string {
+        $variableCount = count($this->variables);
+        return "Variation{key:'$this->key',variables:$variableCount}";
+    }
 }

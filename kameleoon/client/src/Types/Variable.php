@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 namespace Kameleoon\Types;
 
+use Kameleoon\Helpers\StringHelper;
+
 class Variable
 {
     /**
@@ -32,4 +34,12 @@ class Variable
         $this->value = $value;
     }
 
+    public function __toString(): string {
+        if (is_string($this->value)) {
+            $value = "'$this->value'";
+        } else {
+            $value = StringHelper::objectToString($this->value);
+        }
+        return "Variable{key:'$this->key',type:'$this->type',value:$value}";
+    }
 }
