@@ -64,8 +64,14 @@ class RemoteDataManagerImpl implements RemoteDataManager
         $cdi = ($dataFile != null) ? $dataFile->getCustomDataInfo() : null;
         $data->markVisitorDataAsSent($cdi);
         if ($addData) {
+            // Cannot use `visitorManager.AddData` because it could use remote visitor data for mapping.
             $visitor = $this->visitorManager->getOrCreateVisitor($visitorCode);
             $visitor->addData(false, ...$data->collectVisitorDataToAdd());
+        }
+        if ($filter->visitorCode && ($data->visitorCode !== null)) {
+            // We apply visitor code from the latest visit fetched from Data API
+            $visitor = $this->visitorManager->getOrCreateVisitor($visitorCode);
+            $visitor->setMappingIdentifier($data->visitorCode);
         }
         $dataToReturn = $data->collectVisitorDataToReturn();
         KameleoonLogger::debug(

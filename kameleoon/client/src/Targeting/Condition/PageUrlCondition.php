@@ -15,16 +15,14 @@ class PageUrlCondition extends StringValueCondition
 
     public function check($data): bool
     {
-        if (is_iterable($data)) {
-            if ($this->operator === TargetingOperator::EXACT) {
-                return !is_null($this->conditionValue) && isset($data[$this->conditionValue]);
-            } else {
-                foreach ($data as $visit) {
-                    if ($this->checkTargeting($visit->getPageView()->getUrl())) {
-                        return true;
-                    }
+        if (is_array($data) && !empty($data)) {
+            $latest = null;
+            foreach ($data as $visit) {
+                if ($latest === null || $visit->getLastTimestamp() > $latest->getLastTimestamp()) {
+                    $latest = $visit;
                 }
             }
+            return $latest !== null && $this->checkTargeting($latest->getPageView()->getUrl());
         }
         return false;
     }

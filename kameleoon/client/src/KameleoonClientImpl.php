@@ -144,24 +144,25 @@ class KameleoonClientImpl implements KameleoonClient
             $visitorCode, $data);
     }
 
-    public function flush($visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null)
+    public function flush(
+        $visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null, bool $instant = false)
     {
         KameleoonLogger::info(
-            "CALL: KameleoonClientImpl->flush(visitorCode: '%s', timeout: %s, isUniqueIdentifier: %s)",
-            $visitorCode, $timeout, $isUniqueIdentifier);
+            "CALL: KameleoonClientImpl->flush(visitorCode: '%s', timeout: %s, isUniqueIdentifier: %s, instant: %s)",
+            $visitorCode, $timeout, $isUniqueIdentifier, $instant);
         $this->loadConfiguration($timeout);
         if ($visitorCode !== null) {
             VisitorCodeManager::validateVisitorCode($visitorCode);
             if ($isUniqueIdentifier !== null) {
                 $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
             }
-            $this->trackingManager->trackVisitor($visitorCode);
+            $this->trackingManager->trackVisitor($visitorCode, $instant, $timeout);
         } else {
-            $this->trackingManager->trackAll();
+            $this->trackingManager->trackAll($instant, $timeout);
         }
         KameleoonLogger::info(
-            "RETURN: KameleoonClientImpl->flush(visitorCode: '%s', timeout: %s, isUniqueIdentifier: %s)",
-            $visitorCode, $timeout, $isUniqueIdentifier);
+            "RETURN: KameleoonClientImpl->flush(visitorCode: '%s', timeout: %s, isUniqueIdentifier: %s, instant: %s)",
+            $visitorCode, $timeout, $isUniqueIdentifier, $instant);
     }
 
     public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,

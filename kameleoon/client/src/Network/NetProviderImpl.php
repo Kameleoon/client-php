@@ -51,9 +51,7 @@ class NetProviderImpl implements NetProvider
             }
             curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         }
-        if ($request->responseContentType !== ResponseContentType::NONE) {
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        }
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         if (!is_null($request->body)) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $request->body);
         }

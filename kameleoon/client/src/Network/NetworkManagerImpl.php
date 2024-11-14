@@ -71,7 +71,7 @@ class NetworkManagerImpl implements NetworkManager
         return ($timeout === null) ? $this->defaultTimeout : $timeout;
     }
 
-    protected function makeSyncCall(SyncRequest $request)
+    protected function makeSyncCall(SyncRequest $request, bool &$success = false)
     {
         KameleoonLogger::debug("Running request %s", $request);
         $request->timeout = $this->getTimeout($request->timeout);
@@ -90,10 +90,18 @@ class NetworkManagerImpl implements NetworkManager
             }
         } else {
             KameleoonLogger::debug("Fetched response %s for request %s", $response, $request);
+            $success = true;
             return $response->body;
         }
         KameleoonLogger::debug("Fetched response null for request %s", $request);
+        $success = false;
         return null;
+    }
+
+    protected function makeAsyncCall(AsyncRequest $request): void
+    {
+        $this->applyAccessToken($request, $this->defaultTimeout);
+        $this->netProvider->callAsync($request);
     }
 
     private function applyAccessToken(Request $request, ?int $timeout): ?string
@@ -148,10 +156,22 @@ class NetworkManagerImpl implements NetworkManager
         $this->makeAsyncCall($request);
     }
 
-    protected function makeAsyncCall(AsyncRequest $request)
+    public function sendTrackingDataInstantly(string $lines, bool $debug, ?int $timeout = null): bool
     {
-        $this->applyAccessToken($request, $this->defaultTimeout);
-        $this->netProvider->callAsync($request);
+        $url = $this->urlProvider->makeTrackingUrl();
+        if ($debug) {
+            $debugParams = $this->urlProvider->makeExperimentRegisterDebugParams();
+            if ($debugParams !== null) {
+                $url .= $debugParams;
+            }
+        }
+        $headers = ["Content-Type" => "text/plain"];
+        $request = new SyncRequest(
+            Request::POST, $url, $headers, $timeout, ResponseContentType::NONE, true, $lines,
+        );
+        $success = false;
+        $this->makeSyncCall($request, $success);
+        return $success;
     }
 
     public function fetchAccessJWToken(string $clientId, string $clientSecret, ?int $timeout = null): ?object

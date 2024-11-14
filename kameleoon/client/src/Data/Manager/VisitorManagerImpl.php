@@ -44,8 +44,8 @@ class VisitorManagerImpl implements VisitorManager
 
     public function getIterator(): Traversable
     {
-        foreach ($this->visitors as $value) {
-            yield $value;
+        foreach ($this->visitors as $visitorCode => $visitor) {
+            yield $visitorCode => $visitor;
         }
     }
 

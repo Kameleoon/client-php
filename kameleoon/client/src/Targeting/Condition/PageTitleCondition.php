@@ -15,12 +15,14 @@ class PageTitleCondition extends StringValueCondition
 
     public function check($data): bool
     {
-        if (is_iterable($data)) {
-            foreach ($data as $pageView) {
-                if ($this->checkTargeting($pageView->getTitle())) {
-                    return true;
+        if (is_array($data) && !empty($data)) {
+            $latest = null;
+            foreach ($data as $visit) {
+                if ($latest === null || $visit->getLastTimestamp() > $latest->getLastTimestamp()) {
+                    $latest = $visit;
                 }
             }
+            return $latest !== null && $this->checkTargeting($latest->getPageView()->getTitle());
         }
         return false;
     }

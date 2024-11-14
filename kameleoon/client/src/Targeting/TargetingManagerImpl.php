@@ -45,8 +45,12 @@ class TargetingManagerImpl implements TargetingManager
 
     public function checkTargeting(string $visitorCode, int $containerID, TargetingObject $targetingObject): bool
     {
-        KameleoonLogger::debug("CALL: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, rule: %s)",
-            $visitorCode, $containerID, $targetingObject);
+        KameleoonLogger::debug(
+            "CALL: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, rule: %s)",
+            $visitorCode,
+            $containerID,
+            $targetingObject
+        );
         $targeting = true;
 
         // performing targeting
@@ -66,7 +70,11 @@ class TargetingManagerImpl implements TargetingManager
         }
         KameleoonLogger::debug(
             "RETURN: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, rule: %s) -> (targeted: %s)",
-            $visitorCode, $containerID, $targetingObject, $targeting);
+            $visitorCode,
+            $containerID,
+            $targetingObject,
+            $targeting
+        );
         return $targeting;
     }
 
@@ -74,15 +82,16 @@ class TargetingManagerImpl implements TargetingManager
     {
         KameleoonLogger::debug(
             "CALL: TargetingManager.getConditionData(type: '%s', visitorCode: '%s', campaignId: %s)",
-            $type, $visitorCode, $campaignId);
+            $type,
+            $visitorCode,
+            $campaignId
+        );
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         switch ($type) {
             case CustomDatum::TYPE:
                 $conditionData = !is_null($visitor) ? $visitor->getCustomData() : null;
                 break;
             case PageTitleCondition::TYPE:
-                $conditionData = !is_null($visitor) ? $visitor->getPageViews() : null;
-                break;
             case PageUrlCondition::TYPE:
             case PageViewNumberCondition::TYPE:
             case PreviousPageCondition::TYPE:
@@ -146,7 +155,11 @@ class TargetingManagerImpl implements TargetingManager
 
         KameleoonLogger::debug(
             "CALL: TargetingManager.getConditionData(type: '%s', visitorCode: '%s', campaignId: %s) -> (conditionData: %s)",
-            $type, $visitorCode, $campaignId, $conditionData);
+            $type,
+            $visitorCode,
+            $campaignId,
+            $conditionData
+        );
         return $conditionData;
     }
 }

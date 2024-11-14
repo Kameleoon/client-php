@@ -17,6 +17,7 @@ class RemoteVisitorDataFilter
     public bool $conversion;
     public bool $experiments;
     public bool $kcs;
+    public bool $visitorCode;
 
     public function __construct(
         int $previousVisitAmount = 1,
@@ -29,7 +30,8 @@ class RemoteVisitorDataFilter
         bool $operatingSystem = false,
         bool $conversion = false,
         bool $experiments = false,
-        bool $kcs = false)
+        bool $kcs = false,
+        bool $visitorCode = true)
     {
         $this->previousVisitAmount = $previousVisitAmount;
         $this->currentVisit = $currentVisit;
@@ -42,6 +44,7 @@ class RemoteVisitorDataFilter
         $this->conversion = $conversion;
         $this->experiments = $experiments;
         $this->kcs = $kcs;
+        $this->visitorCode = $visitorCode;
     }
 
     public function __toString(): string
@@ -57,6 +60,8 @@ class RemoteVisitorDataFilter
             ",operatingSystem:" . ($this->operatingSystem ? 'true' : 'false') .
             ",conversion:" . ($this->conversion ? 'true' : 'false') .
             ",experiments:" . ($this->experiments ? 'true' : 'false') .
+            ",kcs:" . ($this->kcs ? 'true' : 'false') .
+            ",visitorCode:" . ($this->visitorCode ? 'true' : 'false') .
             '}';
     }
 }

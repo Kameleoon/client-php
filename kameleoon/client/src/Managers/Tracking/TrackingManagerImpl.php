@@ -29,26 +29,32 @@ class TrackingManagerImpl implements TrackingManager
         KameleoonLogger::debug("RETURN: new TrackingManagerImpl(dataManager, networkManager, visitorManager)");
     }
 
-    public function trackVisitor(string $visitorCode): void
+    public function trackVisitor(string $visitorCode, bool $instant = false, ?int $timeout = null): void
     {
-        KameleoonLogger::debug("CALL: TrackingManagerImpl->trackVisitor(visitorCode: '%s')", $visitorCode);
-        $this->track([$visitorCode]);
-        KameleoonLogger::debug("RETURN: TrackingManagerImpl->trackVisitor(visitorCode: '%s')", $visitorCode);
+        KameleoonLogger::debug(
+            "CALL: TrackingManagerImpl->trackVisitor(visitorCode: '%s', instant: %s, timeout: %s)",
+            $visitorCode, $instant, $timeout,
+        );
+        $this->track([$visitorCode], $instant, $timeout);
+        KameleoonLogger::debug(
+            "RETURN: TrackingManagerImpl->trackVisitor(visitorCode: '%s', instant: %s, timeout: %s)",
+            $visitorCode, $instant, $timeout,
+        );
     }
-    public function trackAll(): void
+    public function trackAll(bool $instant = false, ?int $timeout = null): void
     {
-        KameleoonLogger::debug("CALL: TrackingManagerImpl->trackAll()");
+        KameleoonLogger::debug("CALL: TrackingManagerImpl->trackAll(instant: %s, timeout: %s)", $instant, $timeout);
         $visitorCodes = [];
         foreach ($this->visitorManager as $visitorCode => $visitor) {
             if (!empty($visitor->getUnsentData())) {
                 $visitorCodes[] = $visitorCode;
             }
         }
-        $this->track($visitorCodes);
-        KameleoonLogger::debug("RETURN: TrackingManagerImpl->trackAll()");
+        $this->track($visitorCodes, $instant, $timeout);
+        KameleoonLogger::debug("RETURN: TrackingManagerImpl->trackAll(instant: %s, timeout: %s)", $instant, $timeout);
     }
 
-    private function track(array $visitorCodes): void
+    private function track(array $visitorCodes, bool $instant, ?int $timeout): void
     {
         $dataFile = $this->dataManager->getDataFile();
         if ($dataFile == null) {
@@ -57,27 +63,37 @@ class TrackingManagerImpl implements TrackingManager
         }
         $builder = new TrackingBuilder($visitorCodes, $dataFile, $this->visitorManager);
         $builder->build();
-        $this->performTrackingRequest($builder->getUnsentVisitorData(), $builder->getTrackingLines());
+        $this->performTrackingRequest(
+            $builder->getUnsentVisitorData(), $builder->getTrackingLines(), $instant, $timeout,
+        );
     }
 
-    private function performTrackingRequest(array &$visitorData, array &$trackingLines): void
+    private function performTrackingRequest(
+        array &$visitorData, array &$trackingLines, bool $instant, ?int $timeout): void
     {
         if ($trackingLines == null) {
             return;
         }
         KameleoonLogger::debug(
-            "CALL: TrackingManagerImpl->performTrackingRequest(visitorData: %s, trackingLines: %s)",
-            $visitorData, $trackingLines,
+            "CALL: TrackingManagerImpl->performTrackingRequest(visitorData: %s, trackingLines: %s, " .
+            "instant: %s, timeout: %s)", $visitorData, $trackingLines, $instant, $timeout,
         );
         $trackingLines[] = ""; // Additional empty line to make $lines end with LF character
         $lines = implode(self::LINES_DELIMITER, $trackingLines);
-        foreach ($visitorData as $sendable) {
-            $sendable->markAsSent();
+        if ($instant) {
+            $sent = $this->networkManager->sendTrackingDataInstantly($lines, $this->debug, $timeout);
+        } else {
+            $this->networkManager->sendTrackingData($lines, $this->debug);
+            $sent = true;
         }
-        $this->networkManager->sendTrackingData($lines, $this->debug);
+        if ($sent) {
+            foreach ($visitorData as $sendable) {
+                $sendable->markAsSent();
+            }
+        }
         KameleoonLogger::debug(
-            "RETURN: TrackingManagerImpl->performTrackingRequest(visitorData: %s, trackingLines: %s)",
-            $visitorData, $trackingLines,
+            "RETURN: TrackingManagerImpl->performTrackingRequest(visitorData: %s, trackingLines: %s, " .
+            "instant: %s, timeout: %s)", $visitorData, $trackingLines, $instant, $timeout,
         );
     }
 }

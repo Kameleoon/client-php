@@ -21,7 +21,7 @@ class UrlProvider
     const POST_DATA_PATH = "/map/maps";
 
     const AUTOMATION_API_URL = "https://api.kameleoon.com";
-    const TEST_AUTOMATION_API_URL = "https://api.kameleoon.net";
+    const TEST_AUTOMATION_API_URL = "https://api.kameleoon.com";
     public const ACCESS_TOKEN_PATH = "/oauth/token";
 
     private string $siteCode;
@@ -93,9 +93,11 @@ class UrlProvider
         }
     }
 
-    public function makeVisitorDataGetUrl(string $visitorCode,
-        RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier): string
-    {
+    public function makeVisitorDataGetUrl(
+        string $visitorCode,
+        RemoteVisitorDataFilter $filter,
+        bool $isUniqueIdentifier
+    ): string {
         $qb = new QueryBuilder(
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
             new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode),
@@ -109,8 +111,11 @@ class UrlProvider
         self::addFlagParamIfRequired($qb, QueryParams::GEOLOCATION, $filter->geolocation);
         self::addFlagParamIfRequired($qb, QueryParams::EXPERIMENT, $filter->experiments);
         self::addFlagParamIfRequired($qb, QueryParams::PAGE, $filter->pageViews);
-        self::addFlagParamIfRequired($qb, QueryParams::STATIC_DATA,
-            ($filter->device || $filter->browser || $filter->operatingSystem));
+        self::addFlagParamIfRequired(
+            $qb,
+            QueryParams::STATIC_DATA,
+            ($filter->device || $filter->browser || $filter->operatingSystem)
+        );
         return sprintf("https://%s%s?%s", $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
     }
     private static function addFlagParamIfRequired(QueryBuilder $qb, string $paramName, bool $state): void

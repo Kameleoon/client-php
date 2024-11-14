@@ -188,7 +188,9 @@ class VisitorImpl implements Visitor
 
     public function setMappingIdentifier(?string $value): void
     {
-        $this->data->setMappingIdentifier($value);
+        if ($this->data->getMappingIdentifier() === null) {
+            $this->data->setMappingIdentifier($value);
+        }
     }
 
     public function getAssignedVariations(): array

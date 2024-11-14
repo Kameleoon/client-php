@@ -12,7 +12,8 @@ interface KameleoonClient
 
     public function addData($visitorCode, ...$data);
 
-    public function flush($visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null);
+    public function flush(
+        $visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null, bool $instant = false);
 
     public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,
         ?bool $isUniqueIdentifier = null);

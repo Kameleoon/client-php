@@ -29,6 +29,7 @@ class RemoteVisitorData
     public ?Geolocation $geolocation;
     public ?VisitorVisits $previousVisitorVisits;
     public ?KcsHeat $kcsHeat;
+    public ?string $visitorCode;
 
     public function __construct($json)
     {
@@ -40,6 +41,7 @@ class RemoteVisitorData
         $this->browser = null;
         $this->operatingSystem = null;
         $this->geolocation = null;
+        $this->visitorCode = null;
         $this->parseVisit(($json !== null) ? $json->currentVisit ?? null : null);
         $this->previousVisitorVisits =
             $this->parsePreviousVisits(($json !== null) ? $json->previousVisits ?? null : null);
@@ -66,6 +68,9 @@ class RemoteVisitorData
     {
         if ($visit == null) {
             return;
+        }
+        if ($this->visitorCode === null) {
+            $this->visitorCode = $visit->visitorCode ?? null;
         }
         $this->parseCustomData($visit->customDataEvents ?? null);
         $this->parsePages($visit->pageEvents ?? null);
