@@ -12,6 +12,7 @@ class Domain
     private const HTTPS = 'https://';
     private const REGEX_DOMAIN = '/^(\.?(([a-zA-Z\d][a-zA-Z\d-]*[a-zA-Z\d])|[a-zA-Z\d]))'
     . '(\.(([a-zA-Z\d][a-zA-Z\d-]*[a-zA-Z\d])|[a-zA-Z\d])){1,126}$/';
+    private const LOCALHOST = 'localhost';
 
     public static function validateTopLevelDomain(?string $topLevelDomain): ?string
     {
@@ -32,9 +33,12 @@ class Domain
         }
 
 
-        if (!preg_match(self::REGEX_DOMAIN, $topLevelDomain)) {
-            KameleoonLogger::error("The top-level domain '%s' is invalid.", $topLevelDomain);
-            return null;
+        if (!preg_match(self::REGEX_DOMAIN, $topLevelDomain) && $topLevelDomain !== self::LOCALHOST) {
+            KameleoonLogger::error(
+                "The top-level domain '%s' is invalid. The value has been set as provided, but it does not meet " .
+                 "the required format for proper SDK functionality. Please check the domain for correctness.",
+                $topLevelDomain);
+            return $topLevelDomain;
         }
 
         return $topLevelDomain;
