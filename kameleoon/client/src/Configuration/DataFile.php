@@ -17,6 +17,7 @@ class DataFile
     private bool $hasAnyTDRule;
     private array $featureFlagById;
     private array $ruleBySegmentId;
+    private array $ruleInfoByExpId;
     private array $variationById;
     private CustomDataInfo $customDataInfo;
     private array $experimentIdsWithJsCssVariable;
@@ -78,6 +79,18 @@ class DataFile
         KameleoonLogger::debug("RETURN: DataFile->getRuleBySegmentId(segmentId: %s) -> (rule: %s)",
             $segmentId, $rule);
         return $rule;
+    }
+
+    public function getRuleInfoByExpId(int $experimentId): ?RuleInfo
+    {
+        KameleoonLogger::debug("CALL: DataFile->getRuleInfoByExpId(experimentId: %s)", $experimentId);
+        if (!isset($this->ruleInfoByExpId)) {
+            $this->ruleInfoByExpId = $this->collectRuleInfoByExpId();
+        }
+        $ruleInfo = $this->ruleInfoByExpId[$experimentId] ?? null;
+        KameleoonLogger::debug("RETURN: DataFile->getRuleInfoByExpId(experimentId: %s) -> (ruleInfo: %s)",
+            $experimentId, $ruleInfo);
+        return $ruleInfo;
     }
 
     public function getVariation(int $variationId): ?VariationByExposition
@@ -162,6 +175,17 @@ class DataFile
             }
         }
         return $ruleBySegmentId;
+    }
+
+    private function collectRuleInfoByExpId(): array
+    {
+        $ruleInfoByExpId = [];
+        foreach ($this->featureFlags as $ffKey => $ff) {
+            foreach ($ff->rules as $ruleKey => $rule) {
+                $ruleInfoByExpId[$rule->experimentId] = new RuleInfo($ff, $rule);
+            }
+        }
+        return $ruleInfoByExpId;
     }
 
     private function collectVariationById(): array

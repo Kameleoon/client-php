@@ -207,4 +207,31 @@ interface KameleoonClient
         ?string $warehouseKey = null,
         ?int $timeout = null
     ): ?CustomData;
+
+    /**
+     * Sets or resets a forced variation for a visitor in a specific experiment,
+     * so the experiment will be evaluated to the variation for the visitor.
+     * 
+     * In order to reset the forced variation set the `$variationKey` parameter to `null`.
+     * If the forced variation you want to reset does not exist, the method will have no effect.
+     * 
+     * @param string $visitorCode The unique visitor code identifying the visitor.
+     * @param int $experimentId The identifier of the experiment you want to set/reset the forced variation for.
+     * @param ?string $variationKey The identifier of the variation you want the experiment to be evaluated to.
+     * Set to `null` to reset the forced variation.
+     * @param bool $forceTargeting If `true`, the visitor will be targeted to the experiment regardless its conditions.
+     * Otherwise, the normal targeting logic will be preserved. Optional (defaults to `true`).
+     * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
+     * result. Optional (defaults to `null`).
+     * @throws Exception\VisitorCodeInvalid The provided **visitor code** is invalid.
+     * @throws Exception\FeatureExperimentNotFound The provided **experiment id** does not exist in the feature flag.
+     * @throws Exception\FeatureVariationNotFound The provided **variation key** does not belong to the experiment.
+     */
+    public function setForcedVariation(
+        string $visitorCode,
+        int $experimentId,
+        ?string $variationKey,
+        bool $forceTargeting = true,
+        ?int $timeout = null
+    ): void;
 }

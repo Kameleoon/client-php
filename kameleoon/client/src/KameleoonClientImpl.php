@@ -11,11 +11,13 @@ use Kameleoon\Configuration\Variation;
 use Kameleoon\Configuration\VariationByExposition;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Manager\AssignedVariation;
+use Kameleoon\Data\Manager\ForcedExperimentVariation;
 use Kameleoon\Data\Manager\Visitor;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Data\Manager\VisitorManagerImpl;
 use Kameleoon\Exception\DataFileInvalid;
 use Kameleoon\Exception\FeatureEnvironmentDisabled;
+use Kameleoon\Exception\FeatureExperimentNotFound;
 use Kameleoon\Exception\FeatureVariableNotFound;
 use Kameleoon\Exception\FeatureVariationNotFound;
 use Kameleoon\Exception\SiteCodeIsEmpty;
@@ -79,7 +81,9 @@ class KameleoonClientImpl implements KameleoonClient
 
         $this->dataManager = new DataManagerImpl();
         $this->visitorManager = new VisitorManagerImpl($this->dataManager);
-        $this->cookieManager = new CookieManagerImpl($this->dataManager, $clientConfig->getCookieOptions());
+        $this->cookieManager = new CookieManagerImpl(
+            $this->dataManager, $this->visitorManager, $clientConfig->getCookieOptions()
+        );
         $this->targetingManager = new TargetingManagerImpl($this->dataManager, $this->visitorManager);
 
         $this->clientConfig = $clientConfig;
@@ -290,9 +294,18 @@ class KameleoonClientImpl implements KameleoonClient
             "CALL: KameleoonClient->getVariationInfo(visitorCode: '%s', featureFlag: %s, track: %s)",
             $visitorCode, $featureFlag, $track,
         );
-        [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $forcedVariation = ($visitor !== null) ? $visitor->getForcedFeatureVariation($featureFlag->featureKey) : null;
+        if ($forcedVariation !== null) {
+            $varByExp = $forcedVariation->getVarByExp();
+            $rule = $forcedVariation->getRule();
+        } else {
+            [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        }
+        if (($forcedVariation === null) || !$forcedVariation->isSimulated()) {
+            $this->saveVariation($visitorCode, $rule, $varByExp, $track);
+        }
         $variationKey = $this->calculateVariationKey($varByExp, $rule, $featureFlag->defaultVariationKey);
-        $this->saveVariation($visitorCode, $rule, $varByExp, $track);
         KameleoonLogger::debug(
             "RETURN: KameleoonClient->getVariationInfo(visitorCode: '%s', featureFlag: %s, track: %s)" .
             " -> (variationKey: '%s', variationByExposition: %s, rule: %s)",
@@ -453,8 +466,16 @@ class KameleoonClientImpl implements KameleoonClient
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $arrayKeys = array();
         $this->loadConfiguration($timeout);
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
         foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
-            [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            $forcedVariation = ($visitor !== null) ?
+                $visitor->getForcedFeatureVariation($featureFlag->featureKey) : null;
+            if ($forcedVariation !== null) {
+                $variation = $forcedVariation->getVarByExp();
+                $rule = $forcedVariation->getRule();
+            } else {
+                [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            }
             $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
             if ($variationKey != Variation::VARIATION_OFF) {
                 $arrayKeys[] = $featureFlag->featureKey;
@@ -483,11 +504,19 @@ class KameleoonClientImpl implements KameleoonClient
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $mapActiveFeatures = array();
         $this->loadConfiguration($timeout);
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
         foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
             if (!$featureFlag->getEnvironmentEnabled()) {
                 continue;
             }
-            [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            $forcedVariation = ($visitor !== null) ?
+                $visitor->getForcedFeatureVariation($featureFlag->featureKey) : null;
+            if ($forcedVariation !== null) {
+                $varByExp = $forcedVariation->getVarByExp();
+                $rule = $forcedVariation->getRule();
+            } else {
+                [$varByExp, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+            }
             $variationKey = $this->calculateVariationKey($varByExp, $rule, $featureFlag->defaultVariationKey);
             if ($variationKey == Variation::VARIATION_OFF) {
                 continue;
@@ -627,9 +656,18 @@ class KameleoonClientImpl implements KameleoonClient
         $this->loadConfiguration($timeout);
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
-        [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $forcedVariation = ($visitor !== null) ? $visitor->getForcedFeatureVariation($featureKey) : null;
+        if ($forcedVariation !== null) {
+            $variation = $forcedVariation->getVarByExp();
+            $rule = $forcedVariation->getRule();
+        } else {
+            [$variation, $rule] = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
+        }
+        if (($forcedVariation === null) || !$forcedVariation->isSimulated()) {
+            $this->saveVariation($visitorCode, $rule, $variation);
+        }
         $variationKey = $this->calculateVariationKey($variation, $rule, $featureFlag->defaultVariationKey);
-        $this->saveVariation($visitorCode, $rule, $variation);
         $this->trackingManager->trackVisitor($visitorCode);
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->getFeatureVariationKeyInternal(visitorCode: '%s', featureKey: '%s', " .
@@ -804,22 +842,34 @@ class KameleoonClientImpl implements KameleoonClient
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         $mappingIdentifier = ($visitor !== null) ? $visitor->getMappingIdentifier() : null;
         $codeForHash = ($mappingIdentifier === null) ? $visitorCode : $mappingIdentifier;
+        $selectedVariation = null;
+        $selectedRule = null;
         // no rules -> return defaultVariationKey
         foreach ($featureFlag->rules as $rule) {
+            $forcedVariation = ($visitor !== null) ? $visitor->getForcedExperimentVariation($rule->experimentId) : null;
+            if (($forcedVariation !== null) && $forcedVariation->isForceTargeting()) {
+                // Forcing experiment variation in force-targeting mode
+                $selectedVariation = $forcedVariation->getVarByExp();
+                $selectedRule = $rule;
+                break;
+            }
             // check if visitor is targeted for rule, else next rule
             if ($this->targetingManager->checkTargeting($visitorCode, $rule->experimentId, $rule)) {
+                if ($forcedVariation !== null) {
+                    // Forcing experiment variation in targeting-only mode
+                    $selectedVariation = $forcedVariation->getVarByExp();
+                    $selectedRule = $rule;
+                    break;
+                }
                 // uses for rule exposition
                 $hashRule = HashDouble::obtain($codeForHash, $rule->id, $rule->respoolTime);
                 KameleoonLogger::debug("Calculated hashRule: %s for visitorCode: '%s'", $hashRule, $codeForHash);
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
                     if ($rule->isTargetedDelivery() && count($rule->variationByExposition) > 0) {
-                        KameleoonLogger::debug(
-                            "RETURN: KameleoonClientImpl->calculateVariationKeyForFeature(visitorCode: '%s', " .
-                            "featureFlag: %s) -> (variation: %s, rule: %s)",
-                            $visitorCode, $featureFlag, $rule->variationByExposition[0], $rule,
-                        );
-                        return [$rule->variationByExposition[0], $rule];
+                        $selectedVariation = $rule->variationByExposition[0];
+                        $selectedRule = $rule;
+                        break;
                     }
                     // uses for variation's expositions
                     $hashVariation = HashDouble::obtain($codeForHash, $rule->experimentId, $rule->respoolTime);
@@ -829,12 +879,9 @@ class KameleoonClientImpl implements KameleoonClient
                     $variation = $this->calculateVariatonRuleHash($rule, $hashVariation);
                     // variation can be null for experiment rules only, for targeted rule will be always exist
                     if (!is_null($variation)) {
-                        KameleoonLogger::debug(
-                            "RETURN: KameleoonClientImpl->calculateVariationKeyForFeature(visitorCode: '%s', " .
-                            "featureFlag: %s) -> (variation: %s, rule: %s)",
-                            $visitorCode, $featureFlag, $variation, $rule,
-                        );
-                        return [$variation, $rule];
+                        $selectedVariation = $variation;
+                        $selectedRule = $rule;
+                        break;
                     }
                 } elseif ($rule->isTargetedDelivery()) {
                     // if visitor is targeted but not bucketed for targeted rule then break cycle -> return default
@@ -844,9 +891,9 @@ class KameleoonClientImpl implements KameleoonClient
         }
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->calculateVariationKeyForFeature(visitorCode: '%s', featureFlag: %s)" .
-            " -> (variation: null, rule: null)", $visitorCode, $featureFlag,
+            " -> (variation: %s, rule: %s)", $visitorCode, $featureFlag, $selectedVariation, $selectedRule
         );
-        return [null, null];
+        return [$selectedVariation, $selectedRule];
     }
 
     private function calculateVariatonRuleHash(Rule $rule, float $hash): ?VariationByExposition
@@ -885,5 +932,39 @@ class KameleoonClientImpl implements KameleoonClient
             "The 'isUniqueIdentifier' parameter is deprecated. Please, add 'UniqueIdentifier' to a visitor instead."
         );
         $this->visitorManager->addData($visitorCode, new Data\UniqueIdentifier($isUniqueIdentifier));
+    }
+
+    public function setForcedVariation(
+        string $visitorCode, int $experimentId, ?string $variationKey, bool $forceTargeting = true, ?int $timeout = null
+    ): void
+    {
+        KameleoonLogger::info(
+            "CALL: KameleoonClientImpl.SetForcedVariation(visitorCode: '%s', experimentId: %s," .
+            " variationKey: %s, forceTargeting: %s)",
+            $visitorCode, $experimentId, ($variationKey === null) ? "null" : "'$variationKey'", $forceTargeting
+        );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeout);
+        if ($variationKey !== null) {
+            $ruleInfo = $this->dataManager->getDataFile()->getRuleInfoByExpId($experimentId);
+            if ($ruleInfo === null) {
+                throw new FeatureExperimentNotFound("Experiment $experimentId is not found");
+            }
+            $rule = $ruleInfo->getRule();
+            $forcedVariation = new ForcedExperimentVariation(
+                $rule, $rule->getVariationByKey($variationKey), $forceTargeting
+            );
+            $this->visitorManager->addData($visitorCode, $forcedVariation);
+        } else {
+            $visitor = $this->visitorManager->getVisitor($visitorCode);
+            if ($visitor !== null) {
+                $visitor->resetForcedExperimentVariation($experimentId);
+            }
+        }
+        KameleoonLogger::info(
+            "RETURN: KameleoonClientImpl.SetForcedVariation(visitorCode: '%s', experimentId: %s," .
+            " variationKey: %s, forceTargeting: %s)",
+            $visitorCode, $experimentId, ($variationKey === null) ? "null" : "'$variationKey'", $forceTargeting
+        );
     }
 }

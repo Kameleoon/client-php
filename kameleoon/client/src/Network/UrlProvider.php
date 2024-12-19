@@ -84,7 +84,7 @@ class UrlProvider
             $http_user_agent = $_SERVER['HTTP_USER_AGENT'] ?? "";
             return "&" . new QueryBuilder(
                 new QueryParam(QueryParams::DEBUG, "true", false),
-                new QueryParam(QueryParams::URL, rawurlencode($currentUrl)), # //~ Why are these values encoded twice?
+                new QueryParam(QueryParams::URL, rawurlencode($currentUrl)),
                 new QueryParam(QueryParams::IP, rawurlencode($ip)),
                 new QueryParam(QueryParams::UA, rawurlencode($http_user_agent)),
             );

@@ -152,6 +152,38 @@ interface Visitor
     public function getAssignedVariations(): array;
 
     /**
+     * Returns the visitor's forced feature variation by its feature key or `null` if it does not exist.
+     * 
+     * @param string $featureKey
+     * @return ?ForcedFeatureVariation
+     */
+    public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation;
+
+    /**
+     * Returns the visitor's forced experiment variation by its experiment ID or `null` if it does not exist.
+     * 
+     * @param int $experimentId
+     * @return ?ForcedExperimentVariation
+     */
+    public function getForcedExperimentVariation(int $experimentId): ?ForcedExperimentVariation;
+
+    /**
+     * Resets the visitor's forced experiment variation by its experiment ID if it exists,
+     * otherwise the operation has no effect.
+     * 
+     * @param int $experimentId
+     */
+    public function resetForcedExperimentVariation(int $experimentId): void;
+
+    /**
+     * Removes all the current simulated variations of the visitor.
+     * Then adds all the passed simulated variations to the visitor.
+     * 
+     * @param array<ForcedFeatureVariation> $variations
+     */
+    public function updateSimulatedVariations(array $variations): void;
+
+    /**
      * Gets the legal consent status for the visitor. This status is related to the method
      * `enableLegalConsent`. (See:
      * https://developers.kameleoon.com/apis/activation-api-js/api-reference/#enablelegalconsent)

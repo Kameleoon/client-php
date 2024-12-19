@@ -198,6 +198,26 @@ class VisitorImpl implements Visitor
         return $this->data->getAssignedVariations();
     }
 
+    public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
+    {
+        return $this->data->getForcedFeatureVariation($featureKey);
+    }
+
+    public function getForcedExperimentVariation(int $experimentId): ?ForcedExperimentVariation
+    {
+        return $this->data->getForcedExperimentVariation($experimentId);
+    }
+
+    public function resetForcedExperimentVariation(int $experimentId): void
+    {
+        $this->data->resetForcedExperimentVariation($experimentId);
+    }
+
+    public function updateSimulatedVariations(array $variations): void
+    {
+        $this->data->updateSimulatedVariations($variations);
+    }
+
     public function isUniqueIdentifier(): bool
     {
         return $this->uniqueIdentifier;
@@ -245,6 +265,12 @@ class VisitorImpl implements Visitor
             case $data instanceof AssignedVariation:
                 $this->data->addVariation($data, $overwrite);
                 break;
+            case $data instanceof ForcedFeatureVariation:
+                $this->data->addForcedFeatureVariation($data);
+                break;
+            case $data instanceof ForcedExperimentVariation:
+                $this->data->addForcedExperimentVariation($data);
+                break;
             case $data instanceof UniqueIdentifier:
                 $this->uniqueIdentifier = $data->getValue();
                 break;
@@ -267,6 +293,8 @@ class VisitorData
     private array $mapPageView;
     private array $collectionConversion;
     private array $mapAssignedVariation;
+    private array $forcedVariations;
+    private array $simulatedVariations;
     private ?Device $device;
     private ?Browser $browser;
     private ?Cookie $cookie;
@@ -401,6 +429,32 @@ class VisitorData
         return $this->mapAssignedVariation ?? [];
     }
 
+    public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
+    {
+        return $this->simulatedVariations[$featureKey] ?? null;
+    }
+
+    public function getForcedExperimentVariation(int $experimentId): ?ForcedExperimentVariation
+    {
+        return $this->forcedVariations[$experimentId] ?? null;
+    }
+
+    public function resetForcedExperimentVariation(int $experimentId): void
+    {
+        unset($this->forcedVariations[$experimentId]);
+    }
+
+    public function updateSimulatedVariations(array $variations): void
+    {
+        if (empty($this->simulatedVariations) && empty($variations)) {
+            return;
+        }
+        $this->simulatedVariations = [];
+        foreach ($variations as $variation) {
+            $this->simulatedVariations[$variation->getFeatureKey()] = $variation;
+        }
+    }
+
     private function &getOrCreateMapCustomData(): array
     {
         if (!isset($this->mapCustomData)) {
@@ -511,9 +565,7 @@ class VisitorData
 
     private function &getOrCreateMapAssignedVariation(): array
     {
-        if (!isset($this->mapAssignedVariation)) {
-            $this->mapAssignedVariation = array();
-        }
+        $this->mapAssignedVariation ??= array();
         return $this->mapAssignedVariation;
     }
 
@@ -522,5 +574,17 @@ class VisitorData
         if ($overwrite || !array_key_exists($variation->getExperimentId(), $this->getOrCreateMapAssignedVariation())) {
             $this->getOrCreateMapAssignedVariation()[$variation->getExperimentId()] = $variation;
         }
+    }
+
+    public function addForcedFeatureVariation(ForcedFeatureVariation $variation): void
+    {
+        $this->simulatedVariations ??= [];
+        $this->simulatedVariations[$variation->getFeatureKey()] = $variation;
+    }
+
+    public function addForcedExperimentVariation(ForcedExperimentVariation $variation): void
+    {
+        $this->forcedVariations ??= [];
+        $this->forcedVariations[$variation->getRule()->experimentId] = $variation;
     }
 }

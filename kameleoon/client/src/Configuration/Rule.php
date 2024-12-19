@@ -2,6 +2,8 @@
 
 namespace Kameleoon\Configuration;
 
+use Kameleoon\Exception\FeatureVariationNotFound;
+
 class Rule extends TargetingObject
 {
     public const EXPERIMENTATION = "EXPERIMENTATION";
@@ -32,11 +34,22 @@ class Rule extends TargetingObject
 
     public function getVariationIdByKey(string $key): ?int
     {
-        $arrayVariation = array_filter($this->variationByExposition, function ($v, $k) use ($key) {
-            return $v->variationKey == $key;
-        }, ARRAY_FILTER_USE_BOTH);
-        $variation = array_pop($arrayVariation);
-        return !is_null($variation) ? $variation->variationId : null;
+        foreach ($this->variationByExposition as $varByExp) {
+            if ($varByExp->variationKey == $key) {
+                return $varByExp;
+            }
+        }
+        return null;
+    }
+
+    public function getVariationByKey(string $variationKey): VariationByExposition
+    {
+        foreach ($this->variationByExposition as $varByExp) {
+            if ($varByExp->variationKey == $variationKey) {
+                return $varByExp;
+            }
+        }
+        throw new FeatureVariationNotFound("{$this} does not contain variation '{$variationKey}'");
     }
 
     public function isTargetedDelivery(): bool
