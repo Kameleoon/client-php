@@ -33,10 +33,10 @@ class TargetFeatureFlagCondition extends TargetingCondition
             return false;
         }
         foreach ($this->getRules($dataFile) as $rule) {
-            if (($rule == null) || ($rule->experimentId == null)) {
+            if (($rule == null) || ($rule->experiment->id == null)) {
                 continue;
             }
-            $assignedVariation = $variations[$rule->experimentId] ?? null;
+            $assignedVariation = $variations[$rule->experiment->id] ?? null;
             if ($assignedVariation == null) {
                 continue;
             }

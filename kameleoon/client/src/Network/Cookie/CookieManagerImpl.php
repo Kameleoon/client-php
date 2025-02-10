@@ -167,8 +167,8 @@ class CookieManagerImpl implements CookieManager
             return new ForcedFeatureVariation($featureKey, null, null, true);
         }
         foreach ($featureFlag->rules as $rule) {
-            if ($rule->experimentId != $experimentId) continue;
-            foreach ($rule->variationByExposition as $varByExp) {
+            if ($rule->experiment->id != $experimentId) continue;
+            foreach ($rule->experiment->variationsByExposition as $varByExp) {
                 if ($varByExp->variationId == $variationId) {
                     return new ForcedFeatureVariation($featureKey, $rule, $varByExp, true);
                 }

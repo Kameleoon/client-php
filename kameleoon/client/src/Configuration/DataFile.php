@@ -21,6 +21,7 @@ class DataFile
     private array $variationById;
     private CustomDataInfo $customDataInfo;
     private array $experimentIdsWithJsCssVariable;
+    private ?Experiment $holdout;
 
     public function __construct(object $jsonDataFile, ?string $environment = null)
     {
@@ -30,6 +31,7 @@ class DataFile
         $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
         $this->settings = new Settings($jsonDataFile);
         $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
+        $this->holdout = is_object($jsonDataFile->holdout ?? null) ? new Experiment($jsonDataFile->holdout) : null;
         KameleoonLogger::debug(
             "RETURN: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
     }
@@ -47,6 +49,11 @@ class DataFile
     public function getCustomDataInfo(): CustomDataInfo
     {
         return $this->customDataInfo;
+    }
+
+    public function getHoldout(): ?Experiment
+    {
+        return $this->holdout;
     }
 
     public function hasAnyTargetedDeliveryRule(): bool
@@ -182,7 +189,7 @@ class DataFile
         $ruleInfoByExpId = [];
         foreach ($this->featureFlags as $ffKey => $ff) {
             foreach ($ff->rules as $ruleKey => $rule) {
-                $ruleInfoByExpId[$rule->experimentId] = new RuleInfo($ff, $rule);
+                $ruleInfoByExpId[$rule->experiment->id ?? 0] = new RuleInfo($ff, $rule);
             }
         }
         return $ruleInfoByExpId;
@@ -193,7 +200,7 @@ class DataFile
         $variationById = [];
         foreach ($this->featureFlags as $ffKey => $ff) {
             foreach ($ff->rules as $ruleKey => $rule) {
-                foreach ($rule->variationByExposition as $varKey => $variation) {
+                foreach ($rule->experiment->variationsByExposition as $varKey => $variation) {
                     $variationById[$variation->variationId] = $variation;
                 }
             }
@@ -208,7 +215,7 @@ class DataFile
             $hasFeatureFlagVariableJsCss = $this->hasFeatureFlagVariableJsCss($featureFlag);
             foreach ($featureFlag->rules as $rule) {
                 if ($hasFeatureFlagVariableJsCss) {
-                    $experimentIdsWithJSOrCSS[$rule->experimentId] = true;
+                    $experimentIdsWithJSOrCSS[$rule->experiment->id ?? 0] = true;
                 }
             }
         }

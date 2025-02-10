@@ -585,6 +585,6 @@ class VisitorData
     public function addForcedExperimentVariation(ForcedExperimentVariation $variation): void
     {
         $this->forcedVariations ??= [];
-        $this->forcedVariations[$variation->getRule()->experimentId] = $variation;
+        $this->forcedVariations[$variation->getRule()->experiment->id ?? 0] = $variation;
     }
 }
