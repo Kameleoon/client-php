@@ -8,7 +8,7 @@ final class Hasher
 {
     const _2_POW_32 = 0x10000_0000;
 
-    public static function obtain(string $visitorCode, ?int $containerID, ?int $respoolTime = null)
+    public static function obtain(string $visitorCode, ?int $containerID, ?int $respoolTime = null): float
     {
         $stringToDigest = $visitorCode;
         if ($containerID !== null) {
@@ -18,6 +18,11 @@ final class Hasher
             $stringToDigest .= $respoolTime;
         }
         return self::calculate($stringToDigest);
+    }
+
+    public static function obtainHashForMEGroup(string $visitorCode, string $meGroupName): float
+    {
+        return self::calculate($visitorCode . $meGroupName);
     }
 
     public static function calculate(string $stringToDigest): float

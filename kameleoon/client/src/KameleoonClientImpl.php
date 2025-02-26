@@ -106,7 +106,8 @@ class KameleoonClientImpl implements KameleoonClient
                 $this->clientConfig->getClientId(),
                 $this->clientConfig->getClientSecret(),
                 $kameleoonWorkDir
-            )
+            ),
+            $this->clientConfig->getNetworkDomain()
         );
         $this->trackingManager = new TrackingManagerImpl(
             $this->dataManager, $this->networkManager, $this->visitorManager, $this->clientConfig->getDebugMode(),
@@ -309,7 +310,8 @@ class KameleoonClientImpl implements KameleoonClient
         $forcedVariation = ($visitor !== null) ? $visitor->getForcedFeatureVariation($featureFlag->featureKey) : null;
         if ($forcedVariation !== null) {
             $evalExp = EvaluatedExperiment::fromForcedVariation($forcedVariation);
-        } elseif ($this->isVisitorNotInHoldout($visitor, $visitorCode, $track, $save)) {
+        } elseif ($this->isVisitorNotInHoldout($visitor, $visitorCode, $track, $save) &&
+            $this->isFFUnrestrictedByMEGroup($visitor, $visitorCode, $featureFlag)) {
             $evalExp = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
         } else {
             $evalExp = null;
@@ -325,26 +327,52 @@ class KameleoonClientImpl implements KameleoonClient
         return $evalExp;
     }
 
+    private function isFFUnrestrictedByMEGroup(?Visitor $visitor, string $visitorCode, FeatureFlag $featureFlag): bool
+    {
+        if ($featureFlag->meGroupName === null) {
+            return true;
+        }
+        KameleoonLogger::debug(
+            "CALL: KameleoonClientImpl->isFFUnrestrictedByMEGroup(visitor, visitorCode: '%s', featureFlag: %s)",
+            $visitorCode, $featureFlag,
+        );
+        $unrestricted = true;
+        $meGroup = $this->dataManager->getDataFile()->getMEGroups()[$featureFlag->meGroupName];
+        $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+        $meGroupHash = Hasher::obtainHashForMEGroup($codeForHash, $featureFlag->meGroupName);
+        KameleoonLogger::debug(
+            "Calculated ME group hash %s for code: '%s', meGroup: '%s'",
+            $meGroupHash, $codeForHash, $featureFlag->meGroupName
+        );
+        $unrestricted = $meGroup->getFeatureFlagByHash($meGroupHash) === $featureFlag;
+        KameleoonLogger::debug(
+            "RETURN: KameleoonClientImpl->isFFUnrestrictedByMEGroup(visitor, visitorCode: '%s', featureFlag: %s)" .
+            " -> (unrestricted: %s)", $visitorCode, $featureFlag, $unrestricted,
+        );
+        return $unrestricted;
+    }
+
     private function isVisitorNotInHoldout(?Visitor $visitor, string $visitorCode, bool $track, bool $save): bool
     {
+        $holdout = $this->dataManager->getDataFile()->getHoldout();
+        if ($holdout === null) {
+            return true;
+        }
         $inHoldoutVariationKey = "in-holdout";
         KameleoonLogger::debug(
             "CALL: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s)",
             $visitorCode, $track, $save,
         );
-        $holdout = $this->dataManager->getDataFile()->getHoldout();
         $isNotInHoldout = true;
-        if ($holdout !== null) {
-            $codeForHash = self::getCodeForHash($visitor, $visitorCode);
-            $variationHash = Hasher::obtain($visitorCode, $holdout->id);
-            KameleoonLogger::debug("Calculated holdout hash %s for code '%s'", $variationHash, $codeForHash);
-            $varByExp = $holdout->getVariationByHash($variationHash);
-            if ($varByExp !== null) {
-                $isNotInHoldout = $varByExp->variationKey !== $inHoldoutVariationKey;
-                if ($save) {
-                    $evalExp = new EvaluatedExperiment($varByExp, $holdout, Rule::EXPERIMENTATION);
-                    $this->saveVariation($visitorCode, $evalExp, $track);
-                }
+        $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+        $variationHash = Hasher::obtain($codeForHash, $holdout->id);
+        KameleoonLogger::debug("Calculated holdout hash %s for code '%s'", $variationHash, $codeForHash);
+        $varByExp = $holdout->getVariationByHash($variationHash);
+        if ($varByExp !== null) {
+            $isNotInHoldout = $varByExp->variationKey !== $inHoldoutVariationKey;
+            if ($save) {
+                $evalExp = new EvaluatedExperiment($varByExp, $holdout, Rule::EXPERIMENTATION);
+                $this->saveVariation($visitorCode, $evalExp, $track);
             }
         }
         KameleoonLogger::debug(

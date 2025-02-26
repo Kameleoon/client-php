@@ -20,18 +20,7 @@ class Domain
             return null;
         }
 
-        $topLevelDomain = strtolower($topLevelDomain);
-
-        $protocols = [self::HTTP, self::HTTPS];
-        foreach ($protocols as $protocol) {
-            if (strpos($topLevelDomain, $protocol) === 0) {
-                $topLevelDomain = substr($topLevelDomain, strlen($protocol));
-                KameleoonLogger::warning("The top-level domain contains '%s'. Domain after protocol trimming: '%s'",
-                    $protocol, $topLevelDomain);
-                break;
-            }
-        }
-
+        $topLevelDomain = Domain::checkAndTrimProtocol(strtolower($topLevelDomain));
 
         if (!preg_match(self::REGEX_DOMAIN, $topLevelDomain) && $topLevelDomain !== self::LOCALHOST) {
             KameleoonLogger::error(
@@ -42,5 +31,38 @@ class Domain
         }
 
         return $topLevelDomain;
+    }
+
+    public static function validateNetworkDomain(?string $networkDomain): ?string
+    {
+        if ($networkDomain == null) {
+            return null;
+        }
+
+        $networkDomain = Domain::checkAndTrimProtocol(strtolower($networkDomain));
+
+        // remove first and last dot
+        $networkDomain = trim($networkDomain, ".");
+
+        if (!preg_match(self::REGEX_DOMAIN, $networkDomain) && $networkDomain !== self::LOCALHOST) {
+            KameleoonLogger::error("The network domain '%s' is invalid.", $networkDomain);
+            return null;
+        }
+
+        return $networkDomain;
+    }
+
+    private static function checkAndTrimProtocol(string $domain): string
+    {
+        $protocols = [self::HTTP, self::HTTPS];
+        foreach ($protocols as $protocol) {
+            if (strpos($domain, $protocol) === 0) {
+                $domain = substr($domain, strlen($protocol));
+                KameleoonLogger::warning("The domain contains '%s'. Domain after protocol trimming: '%s'",
+                    $protocol, $domain);
+                break;
+            }
+        }
+        return $domain;
     }
 }

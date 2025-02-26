@@ -12,6 +12,7 @@ use Kameleoon\Logging\KameleoonLogger;
 class DataFile
 {
     private array $featureFlags;
+    private array $meGroups;
     private Settings $settings;
     private ?string $environment;
     private bool $hasAnyTDRule;
@@ -29,6 +30,7 @@ class DataFile
             "CALL: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
         $this->environment = $environment;
         $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
+        $this->meGroups = self::makeMEGroups($this->featureFlags);
         $this->settings = new Settings($jsonDataFile);
         $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
         $this->holdout = is_object($jsonDataFile->holdout ?? null) ? new Experiment($jsonDataFile->holdout) : null;
@@ -39,6 +41,11 @@ class DataFile
     public function getFeatureFlags(): array
     {
         return $this->featureFlags;
+    }
+
+    public function &getMEGroups(): array
+    {
+        return $this->meGroups;
     }
 
     public function getSettings(): Settings
@@ -148,6 +155,25 @@ class DataFile
         KameleoonLogger::debug("RETURN: DataFile->getFeatureFlag(featureKey: '%s') -> (featureFlag: %s)",
             $featureKey, $featureFlag);
         return $featureFlag;
+    }
+
+    private static function makeMEGroups(array $featureFlags): array
+    {
+        $meGroupLists = [];
+        foreach ($featureFlags as $featureFlag) {
+            if ($featureFlag->meGroupName !== null) {
+                if (array_key_exists($featureFlag->meGroupName, $meGroupLists)) {
+                    $meGroupLists[$featureFlag->meGroupName][] = $featureFlag;
+                } else {
+                    $meGroupLists[$featureFlag->meGroupName] = [$featureFlag];
+                }
+            }
+        }
+        $meGroups = [];
+        foreach ($meGroupLists as $meGroupName => $meGroupList) {
+            $meGroups[$meGroupName] = new MEGroup($meGroupList);
+        }
+        return $meGroups;
     }
 
     private function detIfHasAnyTargetedDeliveryRule(): bool

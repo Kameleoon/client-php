@@ -10,29 +10,47 @@ use Kameleoon\Types\RemoteVisitorDataFilter;
 
 class UrlProvider
 {
-    const CONFIGURATION_API_URL_FORMAT = "https://sdk-config.kameleoon.eu/%s";
-    const RT_CONFIGURATION_URL = "https://events.kameleoon.com:8110/sse";
-
-    public const DEFAULT_DATA_API_DOMAIN = "data.kameleoon.io";
-    public const TEST_DATA_API_DOMAIN = "data.kameleoon.net";
     const TRACKING_PATH = "/visit/events";
     const VISITOR_DATA_PATH = "/visit/visitor";
     const GET_DATA_PATH = "/map/map";
-    const POST_DATA_PATH = "/map/maps";
-
-    const AUTOMATION_API_URL = "https://api.kameleoon.com";
-    const TEST_AUTOMATION_API_URL = "https://api.kameleoon.com";
     public const ACCESS_TOKEN_PATH = "/oauth/token";
+    public const TEST_DATA_API_DOMAIN = "data.kameleoon.net";
+    public const DEFAULT_DATA_API_DOMAIN = "data.kameleoon.io";
+    public const DEFAULT_EVENTS_DOMAIN = "events.kameleoon.eu";
+    public const DEFAULT_CONFIGURATION_DOMAIN = "sdk-config.kameleoon.eu";
+    public const DEFAULT_ACCESS_TOKEN_DOMAIN = "api.kameleoon.com";
+    const CONFIGURATION_API_URL_FORMAT = "https://%s/%s";
+    const RT_CONFIGURATION_URL_FORMAT = "https://%s:8110/sse";
+    const ACCESS_TOKEN_URL_FORMAT = "https://%s/oauth/token";
+    const DATA_API_URL_FORMAT = "https://%s%s?%s";
 
+    private bool $isCustomDomain = false;
     private string $siteCode;
-    private string $dataApiDomain;
     private string $postQueryBase;
 
-    public function __construct(string $siteCode, string $dataApiDomain)
+    protected string $dataApiDomain = UrlProvider::DEFAULT_DATA_API_DOMAIN;
+    private string $eventsDomain = UrlProvider::DEFAULT_EVENTS_DOMAIN;
+    private string $configurationDomain = UrlProvider::DEFAULT_CONFIGURATION_DOMAIN;
+    private string $accessTokenDomain = UrlProvider::DEFAULT_ACCESS_TOKEN_DOMAIN;
+
+    public function __construct(string $siteCode, ?string $networkDomain = null)
     {
         $this->siteCode = $siteCode;
-        $this->dataApiDomain = $dataApiDomain;
         $this->postQueryBase = $this->makeTrackingQueryBase();
+        $this->updateDomains($networkDomain);
+    }
+
+    private function updateDomains(?string $networkDomain): void
+    {
+        if (empty($networkDomain)) {
+            return;
+        }
+        $this->isCustomDomain = true;
+
+        $this->eventsDomain = "events." . $networkDomain;
+        $this->configurationDomain = "sdk-config." . $networkDomain;
+        $this->dataApiDomain = "data." . $networkDomain;
+        $this->accessTokenDomain = "api." . $networkDomain;
     }
 
     public function getSiteCode(): string
@@ -45,10 +63,30 @@ class UrlProvider
         return $this->dataApiDomain;
     }
 
+    public function getEventsDomain(): string
+    {
+        return $this->eventsDomain;
+    }
+
+    public function getConfigurationDomain(): string
+    {
+        return $this->configurationDomain;
+    }
+
+    public function getAccessTokenDomain(): string
+    {
+        return $this->accessTokenDomain;
+    }
+
     public function applyDataApiDomain(?string $dataApiDomain): void
     {
-        if ($dataApiDomain !== null) {
-            $this->dataApiDomain = $dataApiDomain;
+        if (!empty($dataApiDomain)) {
+            if ($this->isCustomDomain) {
+                $subDomain = strstr($dataApiDomain, '.', true);
+                $this->dataApiDomain = preg_replace('/^[^.]+/', $subDomain, $this->dataApiDomain);
+            } else {
+                $this->dataApiDomain = $dataApiDomain;
+            }
         }
     }
 
@@ -64,7 +102,7 @@ class UrlProvider
 
     public function makeTrackingUrl(): string
     {
-        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase);
+        return sprintf(self::DATA_API_URL_FORMAT, $this->dataApiDomain, self::TRACKING_PATH, $this->postQueryBase);
     }
 
     public function makeExperimentRegisterDebugParams(): ?string
@@ -116,7 +154,7 @@ class UrlProvider
             QueryParams::STATIC_DATA,
             ($filter->device || $filter->browser || $filter->operatingSystem)
         );
-        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
+        return sprintf(self::DATA_API_URL_FORMAT, $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
     }
     private static function addFlagParamIfRequired(QueryBuilder $qb, string $paramName, bool $state): void
     {
@@ -131,7 +169,7 @@ class UrlProvider
             new QueryParam(QueryParams::SITE_CODE, $this->siteCode),
             new QueryParam(QueryParams::KEY, $key),
         );
-        return sprintf("https://%s%s?%s", $this->dataApiDomain, self::GET_DATA_PATH, $qb);
+        return sprintf(self::DATA_API_URL_FORMAT, $this->dataApiDomain, self::GET_DATA_PATH, $qb);
     }
 
     public function makeConfigurationUrl(?string $environment = null): string
@@ -140,7 +178,7 @@ class UrlProvider
         if ($environment !== null) {
             $qb->append(new QueryParam(QueryParams::ENVIRONMENT, $environment));
         }
-        $url = sprintf(self::CONFIGURATION_API_URL_FORMAT, $this->siteCode);
+        $url = sprintf(self::CONFIGURATION_API_URL_FORMAT, $this->configurationDomain, $this->siteCode);
         $query = (string)$qb;
         if (!empty($query)) {
             $url .= "?$query";
@@ -151,11 +189,11 @@ class UrlProvider
     public function makeRealTimeUrl(): string
     {
         $qp = new QueryParam(QueryParams::SITE_CODE, $this->siteCode);
-        return sprintf("%s?%s", self::RT_CONFIGURATION_URL, $qp);
+        return sprintf(self::RT_CONFIGURATION_URL_FORMAT . "?%s", $this->eventsDomain, $qp);
     }
 
     public function makeAccessTokenUrl(): string
     {
-        return sprintf("%s%s", UrlProvider::AUTOMATION_API_URL, UrlProvider::ACCESS_TOKEN_PATH);
+        return sprintf(self::ACCESS_TOKEN_URL_FORMAT, $this->accessTokenDomain);
     }
 }

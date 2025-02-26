@@ -8,6 +8,7 @@ class FeatureFlag
     public string $featureKey;
     private bool $environmentEnabled;
     public string $defaultVariationKey;
+    public ?string $meGroupName;
     private array $variations;
     public array $rules;
 
@@ -17,6 +18,7 @@ class FeatureFlag
         $this->featureKey = $ff->featureKey ?? '';
         $this->environmentEnabled = $ff->environmentEnabled ?? false;
         $this->defaultVariationKey = $ff->defaultVariationKey ?? '';
+        $this->meGroupName = $ff->mutuallyExclusiveGroup ?? null;
         $this->variations = array_map(fn ($var) => new Variation($var), $ff->variations);
         $this->rules = array_map(fn ($rule) => new Rule($rule), $ff->rules);
     }
@@ -46,6 +48,7 @@ class FeatureFlag
             ",featureKey:'" . $this->featureKey .
             "',environmentEnabled:" . ($this->environmentEnabled ? 'true' : 'false') .
             ",defaultVariationKey:'" . $this->defaultVariationKey .
+            "',meGroupName:'" . $this->meGroupName .
             "',rules:" . count($this->rules) .
             "}";
     }

@@ -24,6 +24,7 @@ class KameleoonClientConfig
     private bool $debugMode;
     private CookieOptions $cookieOptions;
     private ?string $environment;
+    private ?string $networkDomain;
 
     public function __construct(
         string $clientId,
@@ -33,7 +34,8 @@ class KameleoonClientConfig
         int $defaultTimeoutMillisecond = self::DEFAULT_TIMEOUT_MILLISECONDS,
         bool $debugMode = false,
         ?CookieOptions $cookieOptions = null,
-        ?string $environment = null
+        ?string $environment = null,
+        ?string $networkDomain = null
     ) {
         if (empty($clientId)) {
             throw new ConfigCredentialsInvalid("Client ID is not specified or empty");
@@ -72,6 +74,7 @@ class KameleoonClientConfig
             );
         }
         $this->environment = $environment;
+        $this->networkDomain = Domain::validateNetworkDomain($networkDomain);
     }
 
     public function getClientId(): string
@@ -114,6 +117,11 @@ class KameleoonClientConfig
         return $this->environment;
     }
 
+    public function getNetworkDomain(): ?string
+    {
+        return $this->networkDomain;
+    }
+
     public static function readFromFile(string $filePath)
     {
         $kameleoonConfigJson = array();
@@ -129,7 +137,8 @@ class KameleoonClientConfig
             $kameleoonConfigJson["default_timeout_millisecond"] ?? self::DEFAULT_TIMEOUT_MILLISECONDS,
             $kameleoonConfigJson["debug_mode"] ?? false,
             CookieOptions::readFromArray($kameleoonConfigJson["cookie_options"] ?? null),
-            $kameleoonConfigJson["environment"] ?? null
+            $kameleoonConfigJson["environment"] ?? null,
+            $kameleoonConfigJson["network_domain"] ?? null
         );
     }
 
@@ -145,12 +154,13 @@ class KameleoonClientConfig
     public function __toString()
     {
         return sprintf(
-            "KameleoonClientConfig{refreshInterval:%s,defaultTimeout:%s,environment:'%s',clientId:'%s',clientSecret:'%s'}",
+            "KameleoonClientConfig{refreshInterval:%s,defaultTimeout:%s,environment:'%s',clientId:'%s',clientSecret:'%s',networkDomain:'%s'}",
             $this->refreshIntervalSecond,
             $this->defaultTimeoutMillisecond,
             $this->environment,
             StringHelper::secret($this->clientId),
-            StringHelper::secret($this->clientSecret)
+            StringHelper::secret($this->clientSecret),
+            $this->networkDomain
         );
     }
 }

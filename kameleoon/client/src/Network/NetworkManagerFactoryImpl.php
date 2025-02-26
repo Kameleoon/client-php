@@ -13,9 +13,10 @@ class NetworkManagerFactoryImpl implements NetworkManagerFactory
         ?string $environment,
         int $defaultTimeout,
         string $kameleoonWorkDir,
-        AccessTokenSourceFactory $accessTokenSourceFactory
+        AccessTokenSourceFactory $accessTokenSourceFactory,
+        ?string $networkDomain
     ): NetworkManager {
-        $urlProvider = new UrlProvider($siteCode, UrlProvider::DEFAULT_DATA_API_DOMAIN);
+        $urlProvider = new UrlProvider($siteCode, $networkDomain);
         $netProvider = new NetProviderImpl($siteCode, $kameleoonWorkDir);
         return new NetworkManagerImpl(
             $urlProvider,

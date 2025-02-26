@@ -13,6 +13,7 @@ interface NetworkManagerFactory
         ?string $environment,
         int $defaultTimeout,
         string $kameleoonWorkDir,
-        AccessTokenSourceFactory $accessTokenSourceFactory
+        AccessTokenSourceFactory $accessTokenSourceFactory,
+        ?string $networkDomain
     ): NetworkManager;
 }
