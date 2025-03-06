@@ -13,24 +13,33 @@ interface KameleoonClient
     public function addData($visitorCode, ...$data);
 
     public function flush(
-        $visitorCode = null, ?int $timeout = null, ?bool $isUniqueIdentifier = null, bool $instant = false);
+        $visitorCode = null,
+        ?int $timeout = null,
+        ?bool $isUniqueIdentifier = null,
+        bool $instant = false
+    );
 
-    public function trackConversion($visitorCode, int $goalID, $revenue = 0.0, ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null);
+    public function trackConversion(
+        $visitorCode,
+        int $goalID,
+        float $revenue = 0.0,
+        ?int $timeout = null,
+        ?bool $isUniqueIdentifier = null
+    );
 
     /**
      * Checks if a feature is active for a given visitor.
-     * 
+     *
      * This method takes `visitorCode` and `featureKey` as mandatory arguments, and
      * `timeout`, `isUniqueIdentifier`, `track` as optional arguments.
      * It checks whether the specified feature flag is active for the visitor.
-     * 
+     *
      * If the visitor has not previously interacted with the feature flag, the SDK assigns a random
      * boolean value (`true` if the feature should be active, `false` if not). If the visitor has been
      * previously associated with the feature flag, the SDK retrieves the previously assigned value.
-     * 
+     *
      * Ensure that proper error handling is implemented in your code to manage potential exceptions.
-     * 
+     *
      * @param string $visitorCode The user's unique identifier.
      * @param string $featureKey The key of the feature you want to expose to a user.
      * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
@@ -39,39 +48,42 @@ interface KameleoonClient
      * identifier; the default value is `null`.
      * @param bool $track Optional flag indicating whether tracking of the feature evaluation is enabled (`true`) or
      * disabled (`false`); the default value is `true`.
-     * 
+     *
      * @return bool `true` if the feature flag is active for the given visitor, otherwise `false`.
-     * 
+     *
      * @throws Exception\VisitorCodeInvalid Thrown if the provided `visitorCode` is invalid
      * (e.g., empty or exceeds 255 characters).
      * @throws Exception\FeatureNotFound Thrown if the requested
      * feature key has not been found in the internal configuration of the SDK.
      */
     public function isFeatureActive(
-        string $visitorCode, string $featureKey, ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null, bool $track = true
+        string $visitorCode,
+        string $featureKey,
+        ?int $timeout = null,
+        ?bool $isUniqueIdentifier = null,
+        bool $track = true
     ): bool;
 
     /**
      * Retrieves the variation assigned to the given visitor for a specific feature flag.
-     * 
+     *
      * This method takes a `visitorCode` and `featureKey` as mandatory arguments, and `track` and `timeout` as
      * optional arguments. It returns the variation assigned to the visitor. If
      * the visitor is not associated with any feature flag rules, the method returns the default
      * variation for the given feature flag.
-     * 
+     *
      * Ensure that proper error handling is implemented in your code to manage potential exceptions.
-     * 
+     *
      * @param string $visitorCode The unique identifier of the visitor.
      * @param string $featureKey The unique identifier of the feature flag.
      * @param bool $track Optional flag indicating whether tracking of the feature evaluation is enabled (`true`) or
      * disabled (`false`); the default value is `true`.
      * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
      * result. This field is optional.
-     * 
+     *
      * @return Types\Variation The variation assigned to the visitor if the visitor is associated with some rule of
      * the feature flag, otherwise the method returns the default variation of the feature flag.
-     * 
+     *
      * @throws Exception\VisitorCodeInvalid Thrown if the provided `visitorCode` is invalid
      * (e.g., empty or exceeds 255 characters).
      * @throws Exception\FeatureNotFound Thrown if the requested
@@ -80,18 +92,21 @@ interface KameleoonClient
      * disabled in the current environment.
      */
     public function getVariation(
-        string $visitorCode, string $featureKey, bool $track = true, ?int $timeout = null
+        string $visitorCode,
+        string $featureKey,
+        bool $track = true,
+        ?int $timeout = null
     ): Variation;
 
     /**
      * Retrieves an array of variations assigned to a given visitor across all feature flags.
-     * 
+     *
      * This method iterates over all available feature flags and returns the assigned variation
      * for each flag associated with the specified visitor. It takes `visitorCode` as a mandatory
      * argument, while `onlyActive`, `track`, `timeout` are optional.
-     * 
+     *
      * Ensure that proper error handling is implemented in your code to manage potential exceptions.
-     * 
+     *
      * @param string $visitorCode The unique identifier of the visitor.
      * @param bool $onlyActive Optional flag indicating whether to return only variations for active feature
      * flags (`true`) or for any feature flags (`false`); the default value is `false`.
@@ -99,22 +114,29 @@ interface KameleoonClient
      * disabled (`false`); the default value is `true`.
      * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
      * result. This field is optional.
-     * 
+     *
      * @return array<string, Types\Variation> An array consisting of feature flag keys as keys and their corresponding
      * variations (or the default variation of that feature flag) as values.
-     * 
+     *
      * @throws Exception\VisitorCodeInvalid Thrown if the provided `visitorCode` is invalid
      * (e.g., empty or exceeds 255 characters).
      */
     public function getVariations(
-        string $visitorCode, bool $onlyActive = false, bool $track = true, ?int $timeout = null
+        string $visitorCode,
+        bool $onlyActive = false,
+        bool $track = true,
+        ?int $timeout = null
     ): array;
 
     /**
      * @deprecated deprecated since version 4.5.0. Please use `getVariation($visitorCode, $featureKey, true)`
      */
-    public function getFeatureVariationKey(string $visitorCode, string $featureKey, ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null);
+    public function getFeatureVariationKey(
+        string $visitorCode,
+        string $featureKey,
+        ?int $timeout = null,
+        ?bool $isUniqueIdentifier = null
+    );
 
     /**
      * @deprecated deprecated since version 4.5.0. Please use `getVariation($visitorCode, $featureKey, true)`
@@ -148,8 +170,13 @@ interface KameleoonClient
 
     public function getRemoteData(string $key, ?int $timeout = null);
 
-    public function getRemoteVisitorData(string $visitorCode, ?int $timeout = null, bool $addData = true,
-        ?RemoteVisitorDataFilter $filter = null, ?bool $isUniqueIdentifier = null): array;
+    public function getRemoteVisitorData(
+        string $visitorCode,
+        ?int $timeout = null,
+        bool $addData = true,
+        ?RemoteVisitorDataFilter $filter = null,
+        ?bool $isUniqueIdentifier = null
+    ): array;
 
     /**
      * Sets or updates the legal consent status for a visitor identified by their unique visitor code,
@@ -211,10 +238,10 @@ interface KameleoonClient
     /**
      * Sets or resets a forced variation for a visitor in a specific experiment,
      * so the experiment will be evaluated to the variation for the visitor.
-     * 
+     *
      * In order to reset the forced variation set the `$variationKey` parameter to `null`.
      * If the forced variation you want to reset does not exist, the method will have no effect.
-     * 
+     *
      * @param string $visitorCode The unique visitor code identifying the visitor.
      * @param int $experimentId The identifier of the experiment you want to set/reset the forced variation for.
      * @param ?string $variationKey The identifier of the variation you want the experiment to be evaluated to.
