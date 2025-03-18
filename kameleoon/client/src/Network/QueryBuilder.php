@@ -61,6 +61,7 @@ class QueryParams
     public const BODY_UA = "bodyUa";
     public const BROWSER_INDEX = "browserIndex";
     public const BROWSER_VERSION = "browserVersion";
+    public const CBS = "cbs";
     public const CITY = "city";
     public const CONVERSION = "conversion";
     public const COUNTRY = "country";

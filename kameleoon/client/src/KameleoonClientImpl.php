@@ -1062,6 +1062,57 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->updateConfigurationFileModificationTime()");
     }
 
+    private function evaluateCBScores(?Visitor $visitor, string $visitorCode, ?Rule $rule): ?EvaluatedExperiment
+    {
+        if (($visitor === null) || ($visitor->getCBScores() === null)) {
+            return null;
+        }
+        KameleoonLogger::debug(
+            "CALL: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s)",
+            $visitorCode,
+            $rule,
+        );
+        $evalExp = null;
+        $varIdGroupByScores = $visitor->getCBScores()->getValues()[$rule->experiment->id] ?? null;
+        if ($varIdGroupByScores !== null) {
+            $varByExpInCbs = null;
+            foreach ($varIdGroupByScores as $varGroup) {
+                // Finding varByExps which exist in CBS variation IDs
+                $varByExpInCbs = [];
+                foreach ($rule->experiment->variationsByExposition as $varByExp) {
+                    if (in_array($varByExp->variationId, $varGroup->getIds())) {
+                        $varByExpInCbs[] = $varByExp;
+                    }
+                }
+                if (!empty($varByExpInCbs)) { // Skiping if not found any varByExp
+                    break; // We need take only one list with the highest scores
+                }
+            }
+            if (!empty($varByExpInCbs)) {
+                $size = count($varByExpInCbs);
+                if ($size > 1) { // if more than one varByExp for score -> randomly get
+                    $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+                    $variationHash = Hasher::obtain($codeForHash, $rule->experiment->id, $rule->respoolTime);
+                    KameleoonLogger::debug("Calculated CBS hash %s for code '%s'", $variationHash, $codeForHash);
+                    $idx = (int)($variationHash * $size);
+                    if ($idx >= $size) {
+                        $idx = $size - 1;
+                    }
+                } else {
+                    $idx = 0;
+                }
+                $evalExp = EvaluatedExperiment::fromVarByExpRule($varByExpInCbs[$idx], $rule);
+            }
+        }
+        KameleoonLogger::debug(
+            "RETURN: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s) -> (evalExp: %s)",
+            $visitorCode,
+            $rule,
+            $evalExp,
+        );
+        return $evalExp;
+    }
+
     private function calculateVariationKeyForFeature(
         string $visitorCode,
         FeatureFlag $featureFlag
@@ -1074,21 +1125,21 @@ class KameleoonClientImpl implements KameleoonClient
         // use mappingIdentifier instead of visitorCode if it was set up
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         $codeForHash = self::getCodeForHash($visitor, $visitorCode);
-        $selected = null;
+        $evalExp = null;
         // no rules -> return defaultVariationKey
         foreach ($featureFlag->rules as $rule) {
             $forcedVariation = ($visitor !== null)
-                ? $visitor->getForcedExperimentVariation($rule->experiment->id ?? 0) : null;
+                ? $visitor->getForcedExperimentVariation($rule->experiment->id) : null;
             if (($forcedVariation !== null) && $forcedVariation->isForceTargeting()) {
                 // Forcing experiment variation in force-targeting mode
-                $selected = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
+                $evalExp = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
                 break;
             }
             // check if visitor is targeted for rule, else next rule
-            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id ?? 0, $rule)) {
+            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id, $rule)) {
                 if ($forcedVariation !== null) {
                     // Forcing experiment variation in targeting-only mode
-                    $selected = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
+                    $evalExp = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
                     break;
                 }
                 // uses for rule exposition
@@ -1096,8 +1147,13 @@ class KameleoonClientImpl implements KameleoonClient
                 KameleoonLogger::debug("Calculated rule hash %s for code '%s'", $hashRule, $codeForHash);
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
+                    // check main exposition for rule with hashRule
+                    $evalExp = $this->evaluateCBScores($visitor, $visitorCode, $rule);
+                    if ($evalExp !== null) {
+                        break;
+                    }
                     if ($rule->isTargetedDelivery() && count($rule->experiment->variationsByExposition) > 0) {
-                        $selected = EvaluatedExperiment::fromVarByExpRule(
+                        $evalExp = EvaluatedExperiment::fromVarByExpRule(
                             $rule->experiment->variationsByExposition[0],
                             $rule
                         );
@@ -1110,7 +1166,7 @@ class KameleoonClientImpl implements KameleoonClient
                     $variation = $rule->experiment->getVariationByHash($hashVariation);
                     // variation can be null for experiment rules only, for targeted rule will be always exist
                     if (!is_null($variation)) {
-                        $selected = EvaluatedExperiment::fromVarByExpRule($variation, $rule);
+                        $evalExp = EvaluatedExperiment::fromVarByExpRule($variation, $rule);
                         break;
                     }
                 } elseif ($rule->isTargetedDelivery()) {
@@ -1124,9 +1180,9 @@ class KameleoonClientImpl implements KameleoonClient
                 " -> (evalExp: %s)",
             $visitorCode,
             $featureFlag,
-            $selected
+            $evalExp
         );
-        return $selected;
+        return $evalExp;
     }
 
     private function getRemoteDataManager(): RemoteDataManager

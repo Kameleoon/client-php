@@ -78,11 +78,20 @@ class NetworkManagerImpl implements NetworkManager
         $accessToken = $this->applyAccessToken($request, $request->timeout);
         $response = $this->netProvider->callSync($request);
         if ($response->error !== null) {
-            KameleoonLogger::error("%s call '%s' failed: Error occurred during request: %s",
-                $request->httpMethod, $request->url, $response->error);
+            KameleoonLogger::error(
+                "%s call '%s' failed: Error occurred during request: %s",
+                $request->httpMethod,
+                $request->url,
+                $response->error
+            );
         } elseif (!$response->isExpectedStatusCode()) {
-            KameleoonLogger::error("%s call '%s' failed: Received unexpected status code '%s'",
-                $request->httpMethod, $request->url, $response->code);
+            KameleoonLogger::error(
+                "%s call '%s' failed: Received unexpected status code: '%s', body: %s",
+                $request->httpMethod,
+                $request->url,
+                $response->code,
+                $response->body
+            );
             if (($response->code == 401) && ($accessToken !== null)) {
                 $request->isJwtRequired = false;
                 $this->netProvider->callSync($request);
@@ -134,9 +143,12 @@ class NetworkManagerImpl implements NetworkManager
         return $this->makeSyncCall($request);
     }
 
-    public function getRemoteVisitorData(string $visitorCode, RemoteVisitorDataFilter $filter, bool $isUniqueIdentifier,
-        ?int $timeout = null)
-    {
+    public function getRemoteVisitorData(
+        string $visitorCode,
+        RemoteVisitorDataFilter $filter,
+        bool $isUniqueIdentifier,
+        ?int $timeout = null
+    ) {
         $url = $this->urlProvider->makeVisitorDataGetUrl($visitorCode, $filter, $isUniqueIdentifier);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
         return $this->makeSyncCall($request);
@@ -167,7 +179,13 @@ class NetworkManagerImpl implements NetworkManager
         }
         $headers = ["Content-Type" => "text/plain"];
         $request = new SyncRequest(
-            Request::POST, $url, $headers, $timeout, ResponseContentType::NONE, true, $lines,
+            Request::POST,
+            $url,
+            $headers,
+            $timeout,
+            ResponseContentType::NONE,
+            true,
+            $lines,
         );
         $success = false;
         $this->makeSyncCall($request, $success);

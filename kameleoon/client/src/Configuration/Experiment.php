@@ -8,12 +8,12 @@ use Kameleoon\Exception\FeatureVariationNotFound;
 
 class Experiment
 {
-    public ?int $id;
+    public int $id;
     public array $variationsByExposition;
 
     public function __construct($obj)
     {
-        $this->id = is_int($obj->experimentId) ? $obj->experimentId : null;
+        $this->id = is_int($obj->experimentId) ? $obj->experimentId : 0;
         $this->variationsByExposition = array_map(
             fn ($var) => new VariationByExposition($var),
             $obj->variationByExposition

@@ -17,7 +17,7 @@ class Rule extends TargetingObject
     public function __construct($rule)
     {
         parent::__construct($rule);
-        $this->id = $rule->id;
+        $this->id = $rule->id ?? 0;
         $this->order = $rule->order;
         $this->type = $rule->type;
         $this->experiment = new Experiment($rule);

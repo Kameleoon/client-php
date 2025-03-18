@@ -6,6 +6,7 @@ namespace Kameleoon\Data\Manager;
 
 use Generator;
 use Kameleoon\Data\BaseData;
+use Kameleoon\Data\CBScores;
 use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\Browser;
@@ -118,6 +119,13 @@ interface Visitor
      * @return KcsHeat|null A KcsHeat object if the information is available, otherwise null.
      */
     public function getKcsHeat(): ?KcsHeat;
+
+    /**
+     * Retrieves information about the CBS of the visitor, if available.
+     *
+     * @return CBScores|null A CBScores object if the information is available, otherwise null.
+     */
+    public function getCBScores(): ?CBScores;
 
     /**
      * Retrieves information about the visits of the visitor, if available.

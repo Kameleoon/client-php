@@ -27,26 +27,11 @@ class StringHelper
         }
 
         if (is_array($data)) {
-            $value = "[";
-            $elements = array_map(function($key, $val) {
-                $keyString = null;
-                if (!is_int($key)) {
-                    $keyString = self::objectToString($key);
-                }
-                if (is_string($val)) {
-                    $valString = "'" . $val . "'";
-                } else {
-                    $valString = self::objectToString($val);
-                }
-                return $keyString === null ? $valString : "$keyString:$valString";
-            }, array_keys($data), $data);
-            $value .= implode(",", $elements);
-            $value .= "]";
-            return $value;
+            return self::sarray($data);
         }
 
         if (is_bool($data)) {
-            return $data ? 'true' : 'false';
+            return self::sbool($data);
         }
 
         if (is_object($data)) {
@@ -58,6 +43,28 @@ class StringHelper
         }
 
         return (string) $data;
+    }
+
+    public static function sarray(array $arr): string
+    {
+        $str = "[";
+        $elements = array_map(function($key, $val) {
+            $keyString = self::objectToString($key);
+            if (is_string($val)) {
+                $valString = "'" . $val . "'";
+            } else {
+                $valString = self::objectToString($val);
+            }
+            return "$keyString:$valString";
+        }, array_keys($arr), $arr);
+        $str .= implode(",", $elements);
+        $str .= "]";
+        return $str;
+    }
+
+    public static function sbool(bool $value): string
+    {
+        return $value ? 'true' : 'false';
     }
 
     public static function prepareArgs(...$args): array {

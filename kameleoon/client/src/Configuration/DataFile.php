@@ -215,7 +215,7 @@ class DataFile
         $ruleInfoByExpId = [];
         foreach ($this->featureFlags as $ffKey => $ff) {
             foreach ($ff->rules as $ruleKey => $rule) {
-                $ruleInfoByExpId[$rule->experiment->id ?? 0] = new RuleInfo($ff, $rule);
+                $ruleInfoByExpId[$rule->experiment->id] = new RuleInfo($ff, $rule);
             }
         }
         return $ruleInfoByExpId;
@@ -241,7 +241,7 @@ class DataFile
             $hasFeatureFlagVariableJsCss = $this->hasFeatureFlagVariableJsCss($featureFlag);
             foreach ($featureFlag->rules as $rule) {
                 if ($hasFeatureFlagVariableJsCss) {
-                    $experimentIdsWithJSOrCSS[$rule->experiment->id ?? 0] = true;
+                    $experimentIdsWithJSOrCSS[$rule->experiment->id] = true;
                 }
             }
         }

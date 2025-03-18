@@ -7,6 +7,7 @@ namespace Kameleoon\Data\Manager;
 use Generator;
 use Kameleoon\Data\BaseData;
 use Kameleoon\Data\Browser;
+use Kameleoon\Data\CBScores;
 use Kameleoon\Data\Conversion;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Data;
@@ -147,6 +148,13 @@ class VisitorImpl implements Visitor
         return $kcsHeat;
     }
 
+    public function getCBScores(): ?CBScores
+    {
+        $cbs = $this->data->getCBScores();
+        KameleoonLogger::debug("CALL/RETURN: Visitor->getCBScores() -> (cbs: %s)", $cbs);
+        return $cbs;
+    }
+
     public function getVisitorVisits(): ?VisitorVisits
     {
         $visitorVisits = $this->data->getVisitorVisits();
@@ -253,6 +261,9 @@ class VisitorImpl implements Visitor
             case $data instanceof KcsHeat:
                 $this->data->setKcsHeat($data);
                 break;
+            case $data instanceof CBScores:
+                $this->data->setCBScores($data, $overwrite);
+                break;
             case $data instanceof VisitorVisits:
                 $this->data->setVisitorVisits($data);
                 break;
@@ -301,6 +312,7 @@ class VisitorData
     private ?OperatingSystem $operatingSystem;
     private ?Geolocation $geolocation;
     private ?KcsHeat $kcsHeat;
+    private ?CBScores $cbscores;
     private ?VisitorVisits $visitorVisits;
     private ?string $userAgent;
     private bool $legalConsent;
@@ -392,6 +404,11 @@ class VisitorData
     public function getKcsHeat(): ?KcsHeat
     {
         return $this->kcsHeat ?? null;
+    }
+
+    public function getCBScores(): ?CBScores
+    {
+        return $this->cbscores ?? null;
     }
 
     public function getVisitorVisits(): ?VisitorVisits
@@ -540,6 +557,13 @@ class VisitorData
         $this->kcsHeat = $kcsHeat;
     }
 
+    public function setCBScores(CBScores $cbs, bool $overwrite): void
+    {
+        if ($overwrite || (($this->cbscores ?? null) === null)) {
+            $this->cbscores = $cbs;
+        }
+    }
+
     public function setVisitorVisits(VisitorVisits $visitorVisits): void
     {
         $this->visitorVisits = $visitorVisits;
@@ -585,6 +609,6 @@ class VisitorData
     public function addForcedExperimentVariation(ForcedExperimentVariation $variation): void
     {
         $this->forcedVariations ??= [];
-        $this->forcedVariations[$variation->getRule()->experiment->id ?? 0] = $variation;
+        $this->forcedVariations[$variation->getRule()->experiment->id] = $variation;
     }
 }

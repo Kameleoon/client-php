@@ -8,12 +8,10 @@ final class Hasher
 {
     const _2_POW_32 = 0x10000_0000;
 
-    public static function obtain(string $visitorCode, ?int $containerID, ?int $respoolTime = null): float
+    public static function obtain(string $visitorCode, int $containerID, ?int $respoolTime = null): float
     {
         $stringToDigest = $visitorCode;
-        if ($containerID !== null) {
-            $stringToDigest .= $containerID;
-        }
+        $stringToDigest .= $containerID;
         if ($respoolTime !== null) {
             $stringToDigest .= $respoolTime;
         }
