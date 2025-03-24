@@ -19,9 +19,6 @@ class CustomData extends Sendable implements Data
     {
         $this->id = $id;
         $this->values = $values;
-        if (empty($values)) {
-            KameleoonLogger::error("Created a custom data $id with no values. It will not be tracked.");
-        }
     }
 
     public function getId()
@@ -36,14 +33,11 @@ class CustomData extends Sendable implements Data
 
     public function getQuery(): string
     {
-        if (count($this->values) === 0) {
-            return "";
-        }
-        $arrayBuilder = array();
+        $arrayBuilder = [];
         foreach ($this->values as $val) {
             $arrayBuilder[$val] = 1;
         }
-        $encoded = json_encode($arrayBuilder, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $encoded = json_encode((object)$arrayBuilder, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         //$encoded = str_replace("\\", "", $encoded);
         $qb = new QueryBuilder(
             new QueryParam(QueryParams::EVENT_TYPE, self::EVENT_TYPE),

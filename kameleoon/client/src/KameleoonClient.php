@@ -19,12 +19,27 @@ interface KameleoonClient
         bool $instant = false
     );
 
+    /**
+     * The method to track conversion. You can add a conversion manually with
+     * `addData` and `Data\Conversion` data object. The result will be same.
+     *
+     * @param string $visitorCode unique identifier of a visitor. This field is mandatory.
+     * @param int $goalID ID of the goal. This field is mandatory.
+     * @param float $revenue Revenue of the conversion. This field is optional (`0.0` by default).
+     * @param ?bool $isUniqueIdentifier (Deprecated) Optional flag indicating whether the visitorCode is a unique
+     * identifier; the default value is `null`.
+     * @param bool $negative Defines if the revenue is positive or negative.
+     * This field is optional (`false` by default).
+     * @param ?array<Data\CustomData> $metadata Metadata of the conversion. This field is optional (`null` by default).
+     */
     public function trackConversion(
         $visitorCode,
         int $goalID,
         float $revenue = 0.0,
         ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null
+        ?bool $isUniqueIdentifier = null,
+        bool $negative = false,
+        ?array $metadata = null
     );
 
     /**

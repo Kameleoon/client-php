@@ -83,6 +83,7 @@ class QueryParams
     public const MAPPING_IDENTIFIER = "mappingIdentifier";
     public const MAPPING_VALUE = "mappingValue";
     public const MAX_NUMBER_PREVIOUS_VISITS = "maxNumberPreviousVisits";
+    public const METADATA = "metadata";
     public const NEGATIVE = "negative";
     public const NONCE = "nonce";
     public const OS = "os";

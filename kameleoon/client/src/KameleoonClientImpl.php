@@ -203,32 +203,38 @@ class KameleoonClientImpl implements KameleoonClient
         int $goalID,
         float $revenue = 0.0,
         ?int $timeout = null,
-        ?bool $isUniqueIdentifier = null
+        ?bool $isUniqueIdentifier = null,
+        bool $negative = false,
+        ?array $metadata = null
     ) {
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->trackConversion(visitorCode: '%s', goalID: %s, revenue: %s, timeout: %s, " .
-                "isUniqueIdentifier: %s)",
+                "isUniqueIdentifier: %s, negative: %s, metadata: %s)",
             $visitorCode,
             $goalID,
             $revenue,
             $timeout,
             $isUniqueIdentifier,
+            $negative,
+            $metadata,
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->loadConfiguration($timeout);
         if ($isUniqueIdentifier !== null) {
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
-        $this->addData($visitorCode, new Data\Conversion($goalID, $revenue));
+        $this->addData($visitorCode, new Data\Conversion($goalID, $revenue, $negative, $metadata));
         $this->trackingManager->trackVisitor($visitorCode);
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->trackConversion(visitorCode: '%s', goalID: %s, revenue: %s, timeout: %s, " .
-                "isUniqueIdentifier: %s)",
+                "isUniqueIdentifier: %s, negative: %s, metadata: %s)",
             $visitorCode,
             $goalID,
             $revenue,
             $timeout,
             $isUniqueIdentifier,
+            $negative,
+            $metadata,
         );
     }
 
