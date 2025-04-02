@@ -154,6 +154,7 @@ class UrlProvider
             QueryParams::STATIC_DATA,
             ($filter->device || $filter->browser || $filter->operatingSystem)
         );
+        self::addFlagParamIfRequired($qb, QueryParams::PERSONALIZATION, $filter->personalization);
         self::addFlagParamIfRequired($qb, QueryParams::CBS, $filter->cbs);
         return sprintf(self::DATA_API_URL_FORMAT, $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);
     }

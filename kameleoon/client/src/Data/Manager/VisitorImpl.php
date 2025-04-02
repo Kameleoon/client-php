@@ -9,17 +9,18 @@ use Kameleoon\Data\BaseData;
 use Kameleoon\Data\Browser;
 use Kameleoon\Data\CBScores;
 use Kameleoon\Data\Conversion;
+use Kameleoon\Data\Cookie;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
-use Kameleoon\Data\PageView;
-use Kameleoon\Data\UserAgent;
-use Kameleoon\Data\Cookie;
-use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\Geolocation;
 use Kameleoon\Data\KcsHeat;
-use Kameleoon\Data\VisitorVisits;
+use Kameleoon\Data\OperatingSystem;
+use Kameleoon\Data\PageView;
+use Kameleoon\Data\Personalization;
 use Kameleoon\Data\UniqueIdentifier;
+use Kameleoon\Data\UserAgent;
+use Kameleoon\Data\VisitorVisits;
 use Kameleoon\Logging\KameleoonLogger;
 
 class VisitorImpl implements Visitor
@@ -206,6 +207,11 @@ class VisitorImpl implements Visitor
         return $this->data->getAssignedVariations();
     }
 
+    public function getPersonalizations(): array
+    {
+        return $this->data->getPersonalizations();
+    }
+
     public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
     {
         return $this->data->getForcedFeatureVariation($featureKey);
@@ -276,6 +282,9 @@ class VisitorImpl implements Visitor
             case $data instanceof AssignedVariation:
                 $this->data->addVariation($data, $overwrite);
                 break;
+            case $data instanceof Personalization:
+                $this->data->addPersonalization($data, $overwrite);
+                break;
             case $data instanceof ForcedFeatureVariation:
                 $this->data->addForcedFeatureVariation($data);
                 break;
@@ -304,6 +313,7 @@ class VisitorData
     private array $mapPageView;
     private array $collectionConversion;
     private array $mapAssignedVariation;
+    private array $personalizations;
     private array $forcedVariations;
     private array $simulatedVariations;
     private ?Device $device;
@@ -444,6 +454,11 @@ class VisitorData
     public function getAssignedVariations(): array
     {
         return $this->mapAssignedVariation ?? [];
+    }
+
+    public function getPersonalizations(): array
+    {
+        return $this->personalizations ?? [];
     }
 
     public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
@@ -597,6 +612,19 @@ class VisitorData
     {
         if ($overwrite || !array_key_exists($variation->getExperimentId(), $this->getOrCreateMapAssignedVariation())) {
             $this->getOrCreateMapAssignedVariation()[$variation->getExperimentId()] = $variation;
+        }
+    }
+
+    private function &getOrCreatePersonalizations(): array
+    {
+        $this->personalizations ??= array();
+        return $this->personalizations;
+    }
+
+    public function addPersonalization(Personalization $personalization, bool $overwrite = true): void
+    {
+        if ($overwrite || !array_key_exists($personalization->getId(), $this->getOrCreatePersonalizations())) {
+            $this->getOrCreatePersonalizations()[$personalization->getId()] = $personalization;
         }
     }
 

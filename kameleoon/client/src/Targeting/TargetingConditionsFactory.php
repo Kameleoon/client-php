@@ -7,8 +7,10 @@ use Kameleoon\Targeting\Condition\ConversionCondition;
 use Kameleoon\Targeting\Condition\CookieCondition;
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\DeviceCondition;
+use Kameleoon\Targeting\Condition\ExclusiveExperimentCondition;
 use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\GeolocationCondition;
+use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 use Kameleoon\Targeting\Condition\OperatingSystemCondition;
 use Kameleoon\Targeting\Condition\PageTitleCondition;
 use Kameleoon\Targeting\Condition\PageUrlCondition;
@@ -16,7 +18,9 @@ use Kameleoon\Targeting\Condition\PageViewNumberCondition;
 use Kameleoon\Targeting\Condition\PreviousPageCondition;
 use Kameleoon\Targeting\Condition\SdkLanguageCondition;
 use Kameleoon\Targeting\Condition\SegmentCondition;
+use Kameleoon\Targeting\Condition\TargetExperimentCondition;
 use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
+use Kameleoon\Targeting\Condition\TargetPersonalizationCondition;
 use Kameleoon\Targeting\Condition\TargetingCondition;
 use Kameleoon\Targeting\Condition\TimeElapsedSinceVisitCondition;
 use Kameleoon\Targeting\Condition\UnknownCondition;
@@ -24,7 +28,6 @@ use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 use Kameleoon\Targeting\Condition\VisitorNewReturnCondition;
-use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 
 class TargetingConditionsFactory
 {
@@ -37,8 +40,17 @@ class TargetingConditionsFactory
             case TargetFeatureFlagCondition::TYPE:
                 return new TargetFeatureFlagCondition($conditionData);
 
+            case TargetExperimentCondition::TYPE:
+                return new TargetExperimentCondition($conditionData);
+
+            case TargetPersonalizationCondition::TYPE:
+                return new TargetPersonalizationCondition($conditionData);
+
             case ExclusiveFeatureFlagCondition::TYPE:
                 return new ExclusiveFeatureFlagCondition($conditionData);
+
+            case ExclusiveExperimentCondition::TYPE:
+                return new ExclusiveExperimentCondition($conditionData);
 
             case VisitorCodeCondition::TYPE:
                 return new VisitorCodeCondition($conditionData);

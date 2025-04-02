@@ -154,10 +154,17 @@ interface Visitor
     /**
      * Retrieves a map of experiment IDs to the corresponding assigned variation for this Visitor.
      *
-     * @return array A map where the keys are experiment IDs and the values are assigned variation IDs for
+     * @return array A map where the keys are experiment IDs and the values are assigned variations for
      *         each experiment that this Visitor has been exposed to.
      */
     public function getAssignedVariations(): array;
+
+    /**
+     * Retrieves a map of personalization IDs to the corresponding personalization for this Visitor.
+     * 
+     * @return array
+     */
+    public function getPersonalizations(): array;
 
     /**
      * Returns the visitor's forced feature variation by its feature key or `null` if it does not exist.

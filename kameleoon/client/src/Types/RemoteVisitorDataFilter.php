@@ -21,6 +21,7 @@ class RemoteVisitorDataFilter
     public bool $kcs;
     public bool $visitorCode;
     public bool $cbs;
+    public bool $personalization;
 
     public function __construct(
         int $previousVisitAmount = 1,
@@ -35,7 +36,9 @@ class RemoteVisitorDataFilter
         bool $experiments = false,
         bool $kcs = false,
         bool $visitorCode = true,
-        bool $cbs = false)
+        // TODO: change the cbs-personalization params order in the next major release if still relevant
+        bool $cbs = false,
+        bool $personalization = false)
     {
         $this->previousVisitAmount = $previousVisitAmount;
         $this->currentVisit = $currentVisit;
@@ -50,6 +53,7 @@ class RemoteVisitorDataFilter
         $this->kcs = $kcs;
         $this->visitorCode = $visitorCode;
         $this->cbs = $cbs;
+        $this->personalization = $personalization;
     }
 
     public function __toString(): string
@@ -68,6 +72,7 @@ class RemoteVisitorDataFilter
             ",kcs:" . StringHelper::sbool($this->kcs) .
             ",visitorCode:" . StringHelper::sbool($this->visitorCode) .
             ",cbs:" . StringHelper::sbool($this->cbs) .
+            ",personalization:" . StringHelper::sbool($this->personalization) .
             '}';
     }
 }

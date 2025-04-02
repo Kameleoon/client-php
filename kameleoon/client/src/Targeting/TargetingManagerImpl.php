@@ -9,15 +9,16 @@ use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Managers\Data\DataManager;
-use Kameleoon\Targeting\Condition\CookieCondition;
-use Kameleoon\Targeting\Condition\CustomDatum;
-use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
-use Kameleoon\Targeting\Condition\GeolocationCondition;
-use Kameleoon\Targeting\Condition\OperatingSystemCondition;
-use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\BrowserCondition;
 use Kameleoon\Targeting\Condition\ConversionCondition;
+use Kameleoon\Targeting\Condition\CookieCondition;
+use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\DeviceCondition;
+use Kameleoon\Targeting\Condition\ExclusiveExperimentCondition;
+use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
+use Kameleoon\Targeting\Condition\GeolocationCondition;
+use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
+use Kameleoon\Targeting\Condition\OperatingSystemCondition;
 use Kameleoon\Targeting\Condition\PageTitleCondition;
 use Kameleoon\Targeting\Condition\PageUrlCondition;
 use Kameleoon\Targeting\Condition\PageViewNumberCondition;
@@ -25,12 +26,14 @@ use Kameleoon\Targeting\Condition\PreviousPageCondition;
 use Kameleoon\Targeting\Condition\SdkInfo;
 use Kameleoon\Targeting\Condition\SdkLanguageCondition;
 use Kameleoon\Targeting\Condition\SegmentCondition;
+use Kameleoon\Targeting\Condition\TargetExperimentCondition;
+use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
+use Kameleoon\Targeting\Condition\TargetPersonalizationCondition;
 use Kameleoon\Targeting\Condition\TimeElapsedSinceVisitCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
 use Kameleoon\Targeting\Condition\VisitorNewReturnCondition;
-use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 
 class TargetingManagerImpl implements TargetingManager
 {
@@ -115,8 +118,21 @@ class TargetingManagerImpl implements TargetingManager
                     ($visitor != null) ? $visitor->getAssignedVariations() : []
                 ];
                 break;
+            case TargetExperimentCondition::TYPE:
+                $conditionData = ($visitor != null) ? $visitor->getAssignedVariations() : [];
+                break;
+            case TargetPersonalizationCondition::TYPE:
+                $conditionData = ($visitor != null) ? $visitor->getPersonalizations() : [];
+                break;
             case ExclusiveFeatureFlagCondition::TYPE:
                 $conditionData = [$campaignId, ($visitor != null) ? $visitor->getAssignedVariations() : []];
+                break;
+            case ExclusiveExperimentCondition::TYPE:
+                $conditionData = [
+                    $campaignId,
+                    ($visitor != null) ? $visitor->getAssignedVariations() : [],
+                    ($visitor != null) ? $visitor->getPersonalizations() : []
+                ];
                 break;
             case SdkLanguageCondition::TYPE:
                 $conditionData = new SdkInfo(SdkVersion::getName(), SdkVersion::getVersion());

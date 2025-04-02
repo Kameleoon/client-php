@@ -90,6 +90,7 @@ class QueryParams
     public const OS_INDEX = "osIndex";
     public const OVERWRITE = "overwrite";
     public const PAGE = "page";
+    public const PERSONALIZATION = "personalization";
     public const POSTAL_CODE = "postalCode";
     public const REFERRERS_INDICES = "referrersIndices";
     public const REGION = "region";

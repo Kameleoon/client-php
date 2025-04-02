@@ -15,6 +15,7 @@ use Kameleoon\Data\Geolocation;
 use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\PageView;
+use Kameleoon\Data\Personalization;
 use Kameleoon\Data\VisitorVisits;
 use Kameleoon\Data\Manager\AssignedVariation;
 use Kameleoon\Data\Manager\PageViewVisit;
@@ -25,6 +26,7 @@ class RemoteVisitorData
     public array $pageViewVisits;
     public array $conversions;
     public array $experiments;
+    public array $personalizations;
     public ?Device $device;
     public ?Browser $browser;
     public ?OperatingSystem $operatingSystem;
@@ -40,6 +42,7 @@ class RemoteVisitorData
         $this->pageViewVisits = [];
         $this->conversions = [];
         $this->experiments = [];
+        $this->personalizations = [];
         $this->device = null;
         $this->browser = null;
         $this->operatingSystem = null;
@@ -82,6 +85,7 @@ class RemoteVisitorData
         $this->parseConversions($visit->conversionEvents ?? null);
         $this->parseGeolocation($visit->geolocationEvents ?? null);
         $this->parseStaticData($visit->staticDataEvent ?? null);
+        $this->parsePersonalizations($visit->personalizationEvents ?? null);
     }
 
     private function parseCustomData($customDataEvents): void
@@ -237,6 +241,28 @@ class RemoteVisitorData
         }
     }
 
+    private function parsePersonalizations($personalizationEvents): void
+    {
+        if (!is_array($personalizationEvents)) {
+            return;
+        }
+        for ($i = count($personalizationEvents) - 1; $i >= 0; $i--) {
+            $personalizationEvent = $personalizationEvents[$i] ?? null;
+            if ($personalizationEvent == null) {
+                continue;
+            }
+            $data = $personalizationEvent->data ?? null;
+            if ($data == null) {
+                continue;
+            }
+            $id = $data->id ?? 0;
+            if (!array_key_exists($id, $this->personalizations)) {
+                $varId = $data->variationId ?? 0;
+                $this->personalizations[$id] = new Personalization($id, $varId);
+            }
+        }
+    }
+
     private static function parseKcsHeat($kcs): ?KcsHeat
     {
         if (!is_object($kcs)) {
@@ -345,6 +371,7 @@ class RemoteVisitorData
         array_push($dataList, ...array_values($this->pageViewVisits));
         array_push($dataList, ...$this->conversions);
         array_push($dataList, ...array_values($this->experiments));
+        array_push($dataList, ...array_values($this->personalizations));
         if ($this->previousVisitorVisits !== null) {
             $dataList[] = $this->previousVisitorVisits;
         }
