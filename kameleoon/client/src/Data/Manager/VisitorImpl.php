@@ -330,19 +330,6 @@ class VisitorData
 
     public function getData(): Generator
     {
-        if (isset($this->mapCustomData)) {
-            foreach ($this->mapCustomData as $customData) {
-                yield $customData;
-            }
-        }
-        foreach ($this->getPageViews() as $pageView) {
-            yield $pageView;
-        }
-        if (isset($this->collectionConversion)) {
-            foreach ($this->collectionConversion as $conversion) {
-                yield $conversion;
-            }
-        }
         if (isset($this->device)) {
             yield $this->device;
         }
@@ -355,9 +342,22 @@ class VisitorData
         if (isset($this->geolocation)) {
             yield $this->geolocation;
         }
+        if (isset($this->mapCustomData)) {
+            foreach ($this->mapCustomData as $customData) {
+                yield $customData;
+            }
+        }
+        foreach ($this->getPageViews() as $pageView) {
+            yield $pageView;
+        }
         if (isset($this->mapAssignedVariation)) {
             foreach ($this->mapAssignedVariation as $assignedVariation) {
                 yield $assignedVariation;
+            }
+        }
+        if (isset($this->collectionConversion)) {
+            foreach ($this->collectionConversion as $conversion) {
+                yield $conversion;
             }
         }
     }

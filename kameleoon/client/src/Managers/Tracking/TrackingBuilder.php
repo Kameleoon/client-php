@@ -116,7 +116,6 @@ class TrackingBuilder
             if ($isConsentGiven) {
                 array_push($data, ...$visitor->getUnsentData());
             } else {
-                array_push($data, ...$visitor->getUnsentConversions());
                 array_push(
                     $data,
                     ...array_filter($visitor->getAssignedVariations(), function ($assignedVariation) {
@@ -124,6 +123,7 @@ class TrackingBuilder
                             $assignedVariation->getRuleType() === AssignedVariation::RULE_TYPE_TARGETED_DELIVERY;
                     })
                 );
+                array_push($data, ...$visitor->getUnsentConversions());
             }
         }
         if (empty($data) && $isConsentGiven) {
