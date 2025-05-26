@@ -141,6 +141,7 @@ class UrlProvider
             new QueryParam($isUniqueIdentifier ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE, $visitorCode),
             new QueryParam(QueryParams::MAX_NUMBER_PREVIOUS_VISITS, (string)$filter->previousVisitAmount),
             new QueryParam(QueryParams::VERSION, "0", false),
+            new QueryParam(QueryParams::STATIC_DATA, "true", false),
         );
         self::addFlagParamIfRequired($qb, QueryParams::KCS, $filter->kcs);
         self::addFlagParamIfRequired($qb, QueryParams::CURRENT_VISIT, $filter->currentVisit);
@@ -149,11 +150,6 @@ class UrlProvider
         self::addFlagParamIfRequired($qb, QueryParams::GEOLOCATION, $filter->geolocation);
         self::addFlagParamIfRequired($qb, QueryParams::EXPERIMENT, $filter->experiments);
         self::addFlagParamIfRequired($qb, QueryParams::PAGE, $filter->pageViews);
-        self::addFlagParamIfRequired(
-            $qb,
-            QueryParams::STATIC_DATA,
-            ($filter->device || $filter->browser || $filter->operatingSystem)
-        );
         self::addFlagParamIfRequired($qb, QueryParams::PERSONALIZATION, $filter->personalization);
         self::addFlagParamIfRequired($qb, QueryParams::CBS, $filter->cbs);
         return sprintf(self::DATA_API_URL_FORMAT, $this->dataApiDomain, self::VISITOR_DATA_PATH, $qb);

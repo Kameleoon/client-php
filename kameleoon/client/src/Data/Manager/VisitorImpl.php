@@ -21,6 +21,7 @@ use Kameleoon\Data\Personalization;
 use Kameleoon\Data\UniqueIdentifier;
 use Kameleoon\Data\UserAgent;
 use Kameleoon\Data\VisitorVisits;
+use Kameleoon\Helpers\TimeHelper;
 use Kameleoon\Logging\KameleoonLogger;
 
 class VisitorImpl implements Visitor
@@ -37,6 +38,11 @@ class VisitorImpl implements Visitor
             $this->data = $source->data;
             $this->uniqueIdentifier = $source->uniqueIdentifier;
         }
+    }
+
+    public function getTimeStarted(): int
+    {
+        return $this->data->getTimeStarted();
     }
 
     public function addData(bool $overwrite, BaseData ...$data): void
@@ -271,7 +277,7 @@ class VisitorImpl implements Visitor
                 $this->data->setCBScores($data, $overwrite);
                 break;
             case $data instanceof VisitorVisits:
-                $this->data->setVisitorVisits($data);
+                $this->data->setVisitorVisits($data, $overwrite);
                 break;
             case $data instanceof Conversion:
                 $this->data->addConversion($data);
@@ -309,6 +315,7 @@ class VisitorImpl implements Visitor
 
 class VisitorData
 {
+    private int $timeStarted;
     private array $mapCustomData;
     private array $mapPageView;
     private array $collectionConversion;
@@ -328,6 +335,16 @@ class VisitorData
     private bool $legalConsent;
     private ?string $mappingIdentifier;
 
+    public function __construct()
+    {
+        $this->timeStarted = TimeHelper::nowInMilliseconds();
+    }
+
+    public function getTimeStarted(): int
+    {
+        return $this->timeStarted;
+    }
+
     public function getData(): Generator
     {
         if (isset($this->device)) {
@@ -341,6 +358,9 @@ class VisitorData
         }
         if (isset($this->geolocation)) {
             yield $this->geolocation;
+        }
+        if (isset($this->visitorVisits)) {
+            yield $this->visitorVisits;
         }
         if (isset($this->mapCustomData)) {
             foreach ($this->mapCustomData as $customData) {
@@ -579,9 +599,11 @@ class VisitorData
         }
     }
 
-    public function setVisitorVisits(VisitorVisits $visitorVisits): void
+    public function setVisitorVisits(VisitorVisits $visitorVisits, bool $overwrite): void
     {
-        $this->visitorVisits = $visitorVisits;
+        if ($overwrite || (($this->visitorVisits ?? null) === null)) {
+            $this->visitorVisits = $visitorVisits->localize($this->timeStarted);
+        }
     }
 
     private function &getOrCreateCollectionConversion(): array

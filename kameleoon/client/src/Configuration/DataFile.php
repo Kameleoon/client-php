@@ -11,6 +11,7 @@ use Kameleoon\Logging\KameleoonLogger;
 
 class DataFile
 {
+    private ?string $lastModified;
     private array $featureFlags;
     private array $meGroups;
     private Settings $settings;
@@ -29,6 +30,7 @@ class DataFile
         KameleoonLogger::debug(
             "CALL: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
         $this->environment = $environment;
+        $this->lastModified = self::readLastModified($jsonDataFile);
         $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
         $this->meGroups = self::makeMEGroups($this->featureFlags);
         $this->settings = new Settings($jsonDataFile);
@@ -36,6 +38,11 @@ class DataFile
         $this->holdout = is_object($jsonDataFile->holdout ?? null) ? new Experiment($jsonDataFile->holdout) : null;
         KameleoonLogger::debug(
             "RETURN: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
+    }
+
+    public function getLastModified(): ?string
+    {
+        return $this->lastModified;
     }
 
     public function getFeatureFlags(): array
@@ -125,6 +132,12 @@ class DataFile
             $this->experimentIdsWithJsCssVariable = $this->collectExperimentIdsWithJsCssVariable();
         }
         return array_key_exists($experimentId, $this->experimentIdsWithJsCssVariable);
+    }
+
+    private static function readLastModified($json): ?string
+    {
+        $lastModified = $json->phpsdk_datafile_lastmod ?? null;
+        return is_string($lastModified) ? $lastModified : null;
     }
 
     private static function createFromJSON($json, $key, $class): array
@@ -265,7 +278,8 @@ class DataFile
     public function __toString(): string
     {
         return sprintf(
-            "DataFile{environment:'%s',featureFlags:%d,settings:%s}",
+            "DataFile{timestamp:%d,environment:'%s',featureFlags:%d,settings:%s}",
+            $this->timestamp ?? 0,
             $this->environment,
             count($this->featureFlags),
             (string) $this->settings,

@@ -18,6 +18,8 @@ use Kameleoon\Data\VisitorVisits;
 
 interface Visitor
 {
+    public function getTimeStarted(): int;
+
     /**
      * Adds data to the visitor's storage.
      *

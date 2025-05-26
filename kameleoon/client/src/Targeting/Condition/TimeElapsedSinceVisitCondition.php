@@ -22,14 +22,15 @@ class TimeElapsedSinceVisitCondition extends NumberCondition
 
     public function check($data): bool
     {
-        if (($data instanceof VisitorVisits) && ($this->conditionValue !== null)) {
-            $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
-            if (empty($prevVisitsTime)) {
+        $visitorVisits = null;
+        if (VisitorVisits::tryGetVisitorVisits($data, $visitorVisits) && ($this->conditionValue !== null)) {
+            $prevVisits = $visitorVisits->getPrevVisits();
+            if (empty($prevVisits)) {
                 return false;
             }
             $now = TimeHelper::nowInMilliseconds();
-            $visitIndex = $this->isFirstVisit ? count($prevVisitsTime) - 1 : 0;
-            $visitTimestamp = $prevVisitsTime[$visitIndex];
+            $visitIndex = $this->isFirstVisit ? count($prevVisits) - 1 : 0;
+            $visitTimestamp = $prevVisits[$visitIndex]->getTimeStarted();
             return $this->checkTargeting($now - $visitTimestamp);
         }
         return false;

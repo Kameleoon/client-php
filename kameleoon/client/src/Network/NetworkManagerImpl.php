@@ -20,6 +20,8 @@ class NetworkManagerImpl implements NetworkManager
     const H_CONTENT_TYPE_NAME = "Content-Type";
     const H_CONTENT_TYPE_VALUE = "application/x-www-form-urlencoded";
     const H_AUTHORIZATION = "Authorization";
+    const H_IF_MODIFIED_SINCE = "If-Modified-Since";
+    const H_LAST_MODIFIED = "last-modified"; // in lower case because NetProvider casts response headers to lower
 
     private UrlProvider $urlProvider;
     private ?string $environment;
@@ -71,12 +73,12 @@ class NetworkManagerImpl implements NetworkManager
         return ($timeout === null) ? $this->defaultTimeout : $timeout;
     }
 
-    protected function makeSyncCall(SyncRequest $request, bool &$success = false)
+    protected function makeSyncCall(SyncRequest $request, bool $readHeaders = false): ?Response
     {
         KameleoonLogger::debug("Running request %s", $request);
         $request->timeout = $this->getTimeout($request->timeout);
         $accessToken = $this->applyAccessToken($request, $request->timeout);
-        $response = $this->netProvider->callSync($request);
+        $response = $this->netProvider->callSync($request, $readHeaders);
         if ($response->error !== null) {
             KameleoonLogger::error(
                 "%s call '%s' failed: Error occurred during request: %s",
@@ -94,16 +96,14 @@ class NetworkManagerImpl implements NetworkManager
             );
             if (($response->code == 401) && ($accessToken !== null)) {
                 $request->isJwtRequired = false;
-                $this->netProvider->callSync($request);
+                $this->netProvider->callSync($request, $readHeaders);
                 $this->accessTokenSource->discardToken($accessToken);
             }
         } else {
             KameleoonLogger::debug("Fetched response %s for request %s", $response, $request);
-            $success = true;
-            return $response->body;
+            return $response;
         }
         KameleoonLogger::debug("Fetched response null for request %s", $request);
-        $success = false;
         return null;
     }
 
@@ -125,22 +125,34 @@ class NetworkManagerImpl implements NetworkManager
         return $token;
     }
 
-    public function fetchConfiguration(?int $timeout = null): ?string
+    public function fetchConfiguration(?int $timeout = null, ?string $ifModifiedSince = null): ?FetchedConfiguration
     {
         $url = $this->urlProvider->makeConfigurationUrl($this->environment);
         $headers = [
             self::HEADER_SDK_TYPE => SdkVersion::SDK_NAME,
             self::HEADER_SDK_VERSION => SdkVersion::getVersion()
         ];
+        if ($ifModifiedSince !== null) {
+            $headers[self::H_IF_MODIFIED_SINCE] = $ifModifiedSince;
+        }
         $request = new SyncRequest(Request::GET, $url, $headers, $timeout, ResponseContentType::TEXT);
-        return $this->makeSyncCall($request);
+        $response = $this->makeSyncCall($request, true);
+        if ($response === null) {
+            return null;
+        }
+        if ($response->code == 304) {
+            return new FetchedConfiguration(null, null);
+        }
+        $lastModified = $response->headers[self::H_LAST_MODIFIED] ?? null;
+        return new FetchedConfiguration($response->body, $lastModified);
     }
 
     public function getRemoteData(string $key, ?int $timeout = null)
     {
         $url = $this->urlProvider->makeApiDataGetRequestUrl($key);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
-        return $this->makeSyncCall($request);
+        $response = $this->makeSyncCall($request);
+        return ($response !== null) ? $response->body : null;
     }
 
     public function getRemoteVisitorData(
@@ -151,7 +163,8 @@ class NetworkManagerImpl implements NetworkManager
     ) {
         $url = $this->urlProvider->makeVisitorDataGetUrl($visitorCode, $filter, $isUniqueIdentifier);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
-        return $this->makeSyncCall($request);
+        $response = $this->makeSyncCall($request);
+        return ($response !== null) ? $response->body : null;
     }
 
     public function sendTrackingData(string $lines, bool $debug): void
@@ -187,9 +200,8 @@ class NetworkManagerImpl implements NetworkManager
             true,
             $lines,
         );
-        $success = false;
-        $this->makeSyncCall($request, $success);
-        return $success;
+        $response = $this->makeSyncCall($request);
+        return $response !== null;
     }
 
     public function fetchAccessJWToken(string $clientId, string $clientSecret, ?int $timeout = null): ?object
@@ -205,7 +217,8 @@ class NetworkManagerImpl implements NetworkManager
             false,
             $data
         );
-        return $this->makeSyncCall($request);
+        $response = $this->makeSyncCall($request);
+        return ($response !== null) ? $response->body : null;
     }
 
     private function formAccessJWTTokenCall(string $clientId, string $clientSecret): string

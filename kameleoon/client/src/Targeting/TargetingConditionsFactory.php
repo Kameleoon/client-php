@@ -8,7 +8,6 @@ use Kameleoon\Targeting\Condition\CookieCondition;
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\DeviceCondition;
 use Kameleoon\Targeting\Condition\ExclusiveExperimentCondition;
-use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\GeolocationCondition;
 use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 use Kameleoon\Targeting\Condition\OperatingSystemCondition;
@@ -45,9 +44,6 @@ class TargetingConditionsFactory
 
             case TargetPersonalizationCondition::TYPE:
                 return new TargetPersonalizationCondition($conditionData);
-
-            case ExclusiveFeatureFlagCondition::TYPE:
-                return new ExclusiveFeatureFlagCondition($conditionData);
 
             case ExclusiveExperimentCondition::TYPE:
                 return new ExclusiveExperimentCondition($conditionData);

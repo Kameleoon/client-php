@@ -15,7 +15,6 @@ use Kameleoon\Targeting\Condition\CookieCondition;
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\DeviceCondition;
 use Kameleoon\Targeting\Condition\ExclusiveExperimentCondition;
-use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\GeolocationCondition;
 use Kameleoon\Targeting\Condition\KcsHeatRangeCondition;
 use Kameleoon\Targeting\Condition\OperatingSystemCondition;
@@ -30,6 +29,7 @@ use Kameleoon\Targeting\Condition\TargetExperimentCondition;
 use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\TargetPersonalizationCondition;
 use Kameleoon\Targeting\Condition\TimeElapsedSinceVisitCondition;
+use Kameleoon\Targeting\Condition\TargetingDataVisitNumberToday;
 use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
@@ -124,9 +124,6 @@ class TargetingManagerImpl implements TargetingManager
             case TargetPersonalizationCondition::TYPE:
                 $conditionData = ($visitor != null) ? $visitor->getPersonalizations() : [];
                 break;
-            case ExclusiveFeatureFlagCondition::TYPE:
-                $conditionData = [$campaignId, ($visitor != null) ? $visitor->getAssignedVariations() : []];
-                break;
             case ExclusiveExperimentCondition::TYPE:
                 $conditionData = [
                     $campaignId,
@@ -157,9 +154,13 @@ class TargetingManagerImpl implements TargetingManager
             case TimeElapsedSinceVisitCondition::FIRST_VISIT_TYPE:
             case TimeElapsedSinceVisitCondition::LAST_VISIT_TYPE:
             case VisitNumberTotalCondition::TYPE:
-            case VisitNumberTodayCondition::TYPE:
             case VisitorNewReturnCondition::TYPE:
                 $conditionData = ($visitor != null) ? $visitor->getVisitorVisits() : null;
+                break;
+            case VisitNumberTodayCondition::TYPE:
+                $conditionData = ($visitor != null)
+                    ? new TargetingDataVisitNumberToday($visitor->getTimeStarted(), $visitor->getVisitorVisits())
+                    : new TargetingDataVisitNumberToday(null, null);
                 break;
             case KcsHeatRangeCondition::TYPE:
                 $conditionData = ($visitor != null) ? $visitor->getKcsHeat() : null;

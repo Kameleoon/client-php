@@ -99,11 +99,13 @@ class QueryParams
     public const SDK_VERSION = "sdkVersion";
     public const SITE_CODE = "siteCode";
     public const STATIC_DATA = "staticData";
+    public const TIME_SINCE_PREVIOUS_VISIT = "timeSincePreviousVisit";
     public const TITLE = "title";
     public const USER_AGENT = "userAgent";
     public const VALUES_COUNT_MAP = "valuesCountMap";
     public const VARIATION_ID = "variationId";
     public const VERSION = "version";
+    public const VISIT_NUMBER = "visitNumber";
     public const VISITOR_CODE = "visitorCode";
 
     public const GRANT_TYPE = "grant_type";

@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.13.0 - 2025-05-26
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Features
+* Added support for **304 (Not Modified)** responses from the SDK config service to avoid redundant updates and reduce traffic when the configuration hasn't changed.
+* Added support for a **New**/**Returning** visitor breakdown filter in reports (requires calling [`getRemoteVisitorData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getremotevisitordata)).
+### Fixed
+* Fixed an issue where visitor data fields - [`Browser`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#browser), [`Device`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#device), and [`OperatingSystem`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#operatingsystem) - were all retrieved from the Data API and added to the visitor, even when only a subset of them was requested.
+
 ## 4.12.1 - 2025-04-08
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.

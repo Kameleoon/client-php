@@ -21,13 +21,14 @@ class VisitorNewReturnCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        if (VisitorVisits::isVisitorVisits($data) && ($this->visitorType !== null)) {
-            $prevVisitsTime = VisitorVisits::getPreviousVisitTimestamps($data);
+        $visitorVisits = null;
+        if (VisitorVisits::tryGetVisitorVisits($data, $visitorVisits) && ($this->visitorType !== null)) {
+            $prevVisits = $visitorVisits->getPrevVisits();
             switch ($this->visitorType) {
                 case self::VISITOR_TYPE_NEW:
-                    return empty($prevVisitsTime);
+                    return empty($prevVisits);
                 case self::VISITOR_TYPE_RETURN:
-                    return !empty($prevVisitsTime);
+                    return !empty($prevVisits);
             }
         }
         return false;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kameleoon\Network;
 
 use Kameleoon\Network\AccessToken\AccessTokenSource;
-use Kameleoon\Network\NetProvider;
 use Kameleoon\Types\RemoteVisitorDataFilter;
 
 interface NetworkManager
@@ -20,7 +19,7 @@ interface NetworkManager
     public function fetchAccessJWToken(string $clientId, string $clientSecret, ?int $timeout = null): ?object;
 
     // SDK config API
-    public function fetchConfiguration(?int $timeout = null): ?string;
+    public function fetchConfiguration(?int $timeout = null, ?string $ifModifiedSince = null): ?FetchedConfiguration;
 
     // Data API
     public function getRemoteData(string $key, ?int $timeout = null);

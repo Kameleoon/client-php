@@ -38,7 +38,7 @@ class NetProviderImpl implements NetProvider
         }
     }
 
-    public function callSync(SyncRequest $request): Response
+    public function callSync(SyncRequest $request, bool $readHeaders = false): Response
     {
         $ch = curl_init($request->url);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->httpMethod);
@@ -55,18 +55,35 @@ class NetProviderImpl implements NetProvider
         if (!is_null($request->body)) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, $request->body);
         }
+        $responseHeaders = [];
+        if ($readHeaders) {
+            curl_setopt(
+                $ch, CURLOPT_HEADERFUNCTION,
+                function ($ch, $headerLine) use (&$responseHeaders) {
+                    $length = strlen($headerLine);
+                    $headerParts = explode(":", $headerLine, 2);
+                    if (count($headerParts) != 2) {
+                        return $length;
+                    }
+                    $hname = strtolower(trim($headerParts[0]));
+                    $hvalue = trim($headerParts[1]);
+                    $responseHeaders[$hname] = $hvalue;
+                    return $length;
+                }
+            );
+        }
         $body = curl_exec($ch);
         $err = curl_error($ch);
         if (empty($err)) {
             $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             try {
                 $content = self::getContent($body, $request->responseContentType);
-                $response = new Response(null, $code, $content);
+                $response = new Response(null, $code, $content, $responseHeaders);
             } catch (Exception $ex) {
-                $response = new Response($ex, $code, null);
+                $response = new Response($ex, $code, null, $responseHeaders);
             }
         } else {
-            $response = new Response($err, null, null);
+            $response = new Response($err, null, null, []);
         }
         curl_close($ch);
         return $response;

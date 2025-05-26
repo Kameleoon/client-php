@@ -59,7 +59,7 @@ class RemoteDataManagerImpl implements RemoteDataManager
             KameleoonLogger::error("Get remote visitor data failed");
             return [];
         }
-        $data = new RemoteVisitorData($json);
+        $data = new RemoteVisitorData($json, $filter);
         $dataFile = $this->dataManager->getDataFile();
         $cdi = ($dataFile != null) ? $dataFile->getCustomDataInfo() : null;
         $data->markVisitorDataAsSent($cdi);

@@ -977,26 +977,21 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("CALL: KameleoonClientImpl->loadConfiguration(timeout: %s)", $timeout);
         $dataFileShouldBeUpdated = $this->shouldDataFileBeUpdated();
         $dataFile = $this->dataManager->getDataFile();
-        if (($dataFile == null) || $dataFileShouldBeUpdated) {
-            if ($dataFileEmpty = !file_exists($this->configurationFilePath)) {
+        $dataFileEmpty = !file_exists($this->configurationFilePath);
+        if (($dataFile == null) && !$dataFileEmpty) {
+            try {
+                $this->loadDataFileLocal();
+            } catch (DataFileInvalid $e) {
+                $this->updateConfigurationExclusively($this->getTimeout($timeout), true);
+                $dataFileShouldBeUpdated = false;
+            }
+        }
+        if ($dataFileShouldBeUpdated) {
+            if ($dataFileEmpty) {
                 $fp = fopen($this->configurationFilePath, "a");
                 fclose($fp);
             }
-            $fp = fopen($this->configurationFilePath, "r+");
-            if ($dataFileShouldBeUpdated && flock($fp, LOCK_EX)) {
-                $this->updateConfiguration($this->getTimeout($timeout), $dataFileEmpty);
-                flock($fp, LOCK_UN);
-            } else {
-                try {
-                    $this->loadDataFileLocal();
-                } catch (DataFileInvalid $e) {
-                    if (flock($fp, LOCK_EX)) {
-                        $this->updateConfiguration($this->getTimeout($timeout), true);
-                        flock($fp, LOCK_UN);
-                    }
-                }
-            }
-            $dataFile = $this->dataManager->getDataFile();
+            $this->updateConfigurationExclusively($this->getTimeout($timeout), $dataFileEmpty);
         }
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->loadConfiguration(timeout: %s)", $timeout);
     }
@@ -1021,6 +1016,22 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->loadDataFileLocal()");
     }
 
+    private function updateConfigurationExclusively(...$args)
+    {
+        $fp = fopen($this->configurationFilePath, "r+");
+        try
+        {
+            if (flock($fp, LOCK_EX)) {
+                $this->updateConfiguration(...$args);
+                flock($fp, LOCK_UN);
+            }
+        }
+        finally
+        {
+            fclose($fp);
+        }
+    }
+
     private function updateConfiguration(int $timeout, bool $forceNetworkRequest = false)
     {
         KameleoonLogger::debug(
@@ -1028,28 +1039,35 @@ class KameleoonClientImpl implements KameleoonClient
             $timeout,
             $forceNetworkRequest
         );
+        $dataFile = $this->dataManager->getDataFile();
+        $updated = false;
         try {
             if ($this->shouldDataFileBeUpdated() || $forceNetworkRequest) {
-                $dataFileOutput = $this->networkManager->fetchConfiguration($timeout);
-                $dataFileJsonRemote = ($dataFileOutput !== null) ? json_decode($dataFileOutput) : null;
-                if (isset($dataFileJsonRemote->featureFlags)) {
-                    file_put_contents($this->configurationFilePath, $dataFileOutput);
-                    $this->applyNewConfiguration($dataFileJsonRemote);
-                } else {
-                    $this->loadDataFileLocal();
+                $lastModified = ($dataFile !== null) ? $dataFile->getLastModified() : null;
+                $fetchedConfiguration = $this->networkManager->fetchConfiguration($timeout, $lastModified);
+                if (($fetchedConfiguration !== null) && !empty($fetchedConfiguration->configuration)) {
+                    $dataFileJsonRemote = json_decode($fetchedConfiguration->configuration);
+                    if (isset($dataFileJsonRemote->featureFlags)) {
+                        if ($fetchedConfiguration->lastModified !== null) {
+                            $dataFileJsonRemote->phpsdk_datafile_lastmod = $fetchedConfiguration->lastModified;
+                        }
+                        file_put_contents($this->configurationFilePath, json_encode($dataFileJsonRemote));
+                        $this->applyNewConfiguration($dataFileJsonRemote);
+                        $updated = true;
+                    }
                 }
-            } else {
-                $this->loadDataFileLocal();
             }
-        } catch (DataFileInvalid $e) {
-            throw new DataFileInvalid("Data file is invalid: " . $e->getMessage());
         } catch (Exception $e) {
             KameleoonLogger::error(
                 "Saved data file will be used. The file needs to be updated, but an error occurred: " . $e->getMessage()
             );
-            $this->loadDataFileLocal();
         } finally {
+            // Updating data file modification time in any case
+            // to prevent recurring CC requests when the server is down.
             $this->updateConfigurationFileModificationTime();
+        }
+        if (!$updated && ($dataFile === null)) {
+            $this->loadDataFileLocal();
         }
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->updateConfiguration(timeout: %s, forceNetworkRequest: %s)",

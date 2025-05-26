@@ -6,7 +6,7 @@ namespace Kameleoon\Network;
 
 interface NetProvider
 {
-    public function callSync(SyncRequest $request): Response;
+    public function callSync(SyncRequest $request, bool $readHeaders = false): Response;
     // There is no async request in PHP SDK. This type of requests will be be performed with background daemon.
     public function callAsync(AsyncRequest $request): string;
 
@@ -25,24 +25,27 @@ class Response
     public $error;
     public ?int $code;
     public $body;
+    public array $headers;
 
-    public function __construct($error, ?int $code, $body)
+    public function __construct($error, ?int $code, $body, ?array $headers = null)
     {
         $this->error = $error;
         $this->code = $code;
         $this->body = $body;
+        $this->headers = $headers ?? [];
     }
 
     public function isExpectedStatusCode(): bool
     {
-        return ($this->code !== null) && ((intdiv($this->code, 100) === 2) || ($this->code === 403));
+        return ($this->code !== null)
+            && ((intdiv($this->code, 100) === 2) || ($this->code === 403) || ($this->code === 304));
     }
 
     public function __toString(): string
     {
-        return "HttpResponse{" .
+        return "Response{" .
             "Code:" . ($this->code ?? 'null') .
-            ",Reason:" . ($this->error ?? 'null') .
+            ",Error:" . ($this->error ?? 'null') .
             ",Body:" . json_encode($this->body) .
             "}";
     }
@@ -90,7 +93,7 @@ abstract class Request
             }
         }
 
-        return "HttpRequest{" .
+        return "Request{" .
             "Method:'" . $this->httpMethod .
             "',Url:'" . $this->url .
             "',Headers:{" . $headers .
