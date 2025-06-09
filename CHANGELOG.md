@@ -1,6 +1,15 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.13.1 - 2025-06-09
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.13.0, please ensure that you are using the latest version of the script.
+### Bug fixes
+* Fixed an issue where file paths in the **Kameleoon work directory** were malformed when the `kameleoon_work_dir` property did not include a trailing slash.
+* Removed the Python dependency from the [cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job).
+* Fixed an issue where several PHP processes sharing the same storage could each update the local client-config sequentially, forming a queue.
+* Fixed an issue where an SDK response could be delayed during an OAuth endpoint outage, caused by requesting an access token on every call to methods sending tracking data.
+
 ## 4.13.0 - 2025-05-26
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.

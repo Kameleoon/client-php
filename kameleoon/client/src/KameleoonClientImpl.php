@@ -88,7 +88,7 @@ class KameleoonClientImpl implements KameleoonClient
 
         $this->clientConfig = $clientConfig;
 
-        $kameleoonWorkDir = $this->clientConfig->getKameleoonWorkDir();
+        $kameleoonWorkDir = $this->clientConfig->getKameleoonWorkDir() . "/";
         $this->configurationFilePath = $kameleoonWorkDir . self::FILE_CONFIGURATION_NAME . $siteCode . ".json";
 
         if (!is_dir($kameleoonWorkDir)) {
@@ -1042,6 +1042,7 @@ class KameleoonClientImpl implements KameleoonClient
         $dataFile = $this->dataManager->getDataFile();
         $updated = false;
         try {
+            clearstatcache(false, $this->configurationFilePath);
             if ($this->shouldDataFileBeUpdated() || $forceNetworkRequest) {
                 $lastModified = ($dataFile !== null) ? $dataFile->getLastModified() : null;
                 $fetchedConfiguration = $this->networkManager->fetchConfiguration($timeout, $lastModified);
@@ -1081,7 +1082,7 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("CALL: KameleoonClientImpl->updateConfigurationFileModificationTime()");
         if (file_exists($this->configurationFilePath)) {
             touch($this->configurationFilePath);
-            clearstatcache();
+            clearstatcache(false, $this->configurationFilePath);
         }
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->updateConfigurationFileModificationTime()");
     }
