@@ -1023,6 +1023,7 @@ class KameleoonClientImpl implements KameleoonClient
             $forceNetworkRequest
         );
         try {
+            clearstatcache(false, $this->configurationFilePath);
             if ($this->shouldDataFileBeUpdated() || $forceNetworkRequest) {
                 $dataFileOutput = $this->networkManager->fetchConfiguration($timeout);
                 $dataFileJsonRemote = ($dataFileOutput !== null) ? json_decode($dataFileOutput) : null;
@@ -1057,7 +1058,7 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("CALL: KameleoonClientImpl->updateConfigurationFileModificationTime()");
         if (file_exists($this->configurationFilePath)) {
             touch($this->configurationFilePath);
-            clearstatcache();
+            clearstatcache(false, $this->configurationFilePath);
         }
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->updateConfigurationFileModificationTime()");
     }

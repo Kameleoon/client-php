@@ -11,7 +11,6 @@ use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Managers\Data\DataManager;
 use Kameleoon\Targeting\Condition\CookieCondition;
 use Kameleoon\Targeting\Condition\CustomDatum;
-use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\GeolocationCondition;
 use Kameleoon\Targeting\Condition\OperatingSystemCondition;
 use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
@@ -114,9 +113,6 @@ class TargetingManagerImpl implements TargetingManager
                     $this->dataManager->getDataFile(),
                     ($visitor != null) ? $visitor->getAssignedVariations() : []
                 ];
-                break;
-            case ExclusiveFeatureFlagCondition::TYPE:
-                $conditionData = [$campaignId, ($visitor != null) ? $visitor->getAssignedVariations() : []];
                 break;
             case SdkLanguageCondition::TYPE:
                 $conditionData = new SdkInfo(SdkVersion::getName(), SdkVersion::getVersion());

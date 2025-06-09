@@ -7,7 +7,6 @@ use Kameleoon\Targeting\Condition\ConversionCondition;
 use Kameleoon\Targeting\Condition\CookieCondition;
 use Kameleoon\Targeting\Condition\CustomDatum;
 use Kameleoon\Targeting\Condition\DeviceCondition;
-use Kameleoon\Targeting\Condition\ExclusiveFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\GeolocationCondition;
 use Kameleoon\Targeting\Condition\OperatingSystemCondition;
 use Kameleoon\Targeting\Condition\PageTitleCondition;
@@ -36,9 +35,6 @@ class TargetingConditionsFactory
 
             case TargetFeatureFlagCondition::TYPE:
                 return new TargetFeatureFlagCondition($conditionData);
-
-            case ExclusiveFeatureFlagCondition::TYPE:
-                return new ExclusiveFeatureFlagCondition($conditionData);
 
             case VisitorCodeCondition::TYPE:
                 return new VisitorCodeCondition($conditionData);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Kameleoon\Network\AccessToken;
 
 use Kameleoon\Helpers\StringHelper;
@@ -9,9 +11,11 @@ use Kameleoon\Network\NetworkManager;
 class AccessTokenSourceImpl implements AccessTokenSource
 {
     const TOKEN_EXPIRATION_GAP = 60 * 10; // in seconds
+    const SILENCE_PERIOD = 3600; // 1 hour in seconds
     const JWT_ACCESS_TOKEN_FIELD = "access_token";
     const JWT_EXPIRES_IN_FIELD = "expires_in";
     const JWT_EXPIRES_AT_FIELD = "expires_at";
+    const SILENT_AFTER_FETCH_FAILURE_UNTIL_FIELD = "silentAfterFetchFailureUntil";
     const ACCESS_TOKEN_FILE = "access_token.json";
 
     private string $clientId;
@@ -68,7 +72,7 @@ class AccessTokenSourceImpl implements AccessTokenSource
             return $this->cachedToken;
         }
         if (file_exists($this->accessTokenFilePath)) {
-            $token = $this->loadToken(file_get_contents($this->accessTokenFilePath, true));
+            [$token, ] = self::loadToken(file_get_contents($this->accessTokenFilePath, true));
             if ($token !== null) {
                 $this->cachedToken = $token;
                 return $token;
@@ -88,15 +92,15 @@ class AccessTokenSourceImpl implements AccessTokenSource
         }
         $token = null;
         if (($fp = fopen($this->accessTokenFilePath, "r+")) && flock($fp, LOCK_EX)) {
-            $token = $this->loadToken(stream_get_contents($fp));
-            if ($token === null) {
+            [$token, $silentAfterFetchFailure] = self::loadToken(stream_get_contents($fp));
+            if (($token === null) && !$silentAfterFetchFailure) {
                 $tokenResponse =
                     $this->networkManager->fetchAccessJWToken($this->clientId, $this->clientSecret, $timeout);
                 if ($tokenResponse !== null) {
-                    $this->saveToken($fp, $tokenResponse);
+                    self::saveToken($fp, $tokenResponse);
                     $token = $tokenResponse->{self::JWT_ACCESS_TOKEN_FIELD};
                 } else {
-                    ftruncate($fp, 0);
+                    self::saveSilenceMode($fp);
                 }
             }
             $this->cachedToken = $token;
@@ -108,30 +112,30 @@ class AccessTokenSourceImpl implements AccessTokenSource
         return $token;
     }
 
-    private function loadToken(string $tokenInFile): ?string
+    private static function loadToken(string $tokenInFile): array
     {
-        KameleoonLogger::debug("CALL: AccessTokenSource->loadToken(tokenInFile: '%s')", $tokenInFile);
+        KameleoonLogger::debug("CALL: AccessTokenSource::loadToken(tokenInFile: '%s')", $tokenInFile);
+        $token = null;
+        $silentAfterFetchFailure = false;
         $accessTokenJson = json_decode($tokenInFile);
-        if ($accessTokenJson === null) {
-            KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: null)",
-                $tokenInFile);
-            return null;
+        if ($accessTokenJson !== null) {
+            $now = time();
+            if ($now < ($accessTokenJson->{self::JWT_EXPIRES_AT_FIELD} ?? 0)) {
+                $token = $accessTokenJson->{self::JWT_ACCESS_TOKEN_FIELD};
+            } elseif ($now < ($accessTokenJson->{self::SILENT_AFTER_FETCH_FAILURE_UNTIL_FIELD} ?? 0)) {
+                $silentAfterFetchFailure = true;
+            }
         }
-        $expiredAt = $accessTokenJson->{self::JWT_EXPIRES_AT_FIELD};
-        if (time() < $expiredAt) {
-            $token = $accessTokenJson->{self::JWT_ACCESS_TOKEN_FIELD};
-            KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: %s)",
-                $tokenInFile, $token);
-            return $token;
-        }
-        KameleoonLogger::debug("RETURN: AccessTokenSource->loadToken(tokenInFile: '%s') -> (token: null)",
-            $tokenInFile);
-        return null;
+        KameleoonLogger::debug(
+            "RETURN: AccessTokenSource::loadToken(tokenInFile: '%s') -> (token: %s, silentAfterFetchFailure: %s)",
+            $tokenInFile, $token ?? "null", $silentAfterFetchFailure
+        );
+        return [$token, $silentAfterFetchFailure];
     }
 
-    private function saveToken($fp, object $tokenResponse)
+    private static function saveToken($fp, object $tokenResponse): void
     {
-        KameleoonLogger::debug("CALL: AccessTokenSource->saveToken(fp: %s, tokenResponse: %s)", $fp,
+        KameleoonLogger::debug("CALL: AccessTokenSource::saveToken(fp: %s, tokenResponse: %s)", $fp,
             $tokenResponse);
         if ($tokenResponse->{SELF::JWT_EXPIRES_IN_FIELD} < self::TOKEN_EXPIRATION_GAP) {
             KameleoonLogger::error("Access token life time (%ss) is not long enough to cache the token",
@@ -145,15 +149,27 @@ class AccessTokenSourceImpl implements AccessTokenSource
             fflush($fp);
             ftruncate($fp, ftell($fp));
         }
-        KameleoonLogger::debug("RETURN: AccessTokenSource->saveToken(fp: %s, tokenResponse: %s)", $fp,
+        KameleoonLogger::debug("RETURN: AccessTokenSource::saveToken(fp: %s, tokenResponse: %s)", $fp,
             $tokenResponse);
     }
 
-    public function discardToken(string $token)
+    private static function saveSilenceMode($fp): void
+    {
+        KameleoonLogger::debug("CALL: AccessTokenSource::saveSilenceMode(fp: %s)", $fp);
+        $silentUntil = time() + self::SILENCE_PERIOD;
+        $content = '{"' . self::SILENT_AFTER_FETCH_FAILURE_UNTIL_FIELD . "\":$silentUntil}";
+        rewind($fp);
+        fwrite($fp, $content);
+        fflush($fp);
+        ftruncate($fp, ftell($fp));
+        KameleoonLogger::debug("RETURN: AccessTokenSource::saveSilenceMode(fp: %s)", $fp);
+    }
+
+    public function discardToken(string $token): void
     {
         KameleoonLogger::debug("CALL: AccessTokenSource->discardToken(token: '%s')", $token);
         if (($fp = fopen($this->accessTokenFilePath, "r+")) && flock($fp, LOCK_EX)) {
-            $tokenFile = $this->loadToken(stream_get_contents($fp));
+            [$tokenFile, ] = self::loadToken(stream_get_contents($fp));
             if ($token == $tokenFile) {
                 ftruncate($fp, 0);
                 $this->cachedToken = null;

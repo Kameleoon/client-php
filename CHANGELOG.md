@@ -1,6 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.9.2 - 2025-03-06
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Bug fixes
+* Fixed an issue where several PHP processes sharing the same storage could each update the local client-config sequentially, forming a queue.
+* Fixed an issue where an SDK response could be delayed during an OAuth endpoint outage, caused by requesting an access token on every call to methods sending tracking data.
+
 ## 4.9.1 - 2025-03-06
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
@@ -271,7 +278,7 @@ All notable changes to this project will be documented in this file.
 
 
 ## 2.0.8 - 2022-01-25
-* Added scheduling functionality for [`activateFeature`](https://developers.kameleoon.com/swift-sdk.html#activatefeature)
+* Added scheduling functionality for [`activateFeature`](https://developers.kameleoon.com/php-sdk.html#activatefeature)
 * Adding URI encoding for [`CustomData`](https://developers.kameleoon.com/php-sdk.html#customdata) & [`PageView`](https://developers.kameleoon.com/php-sdk.html#pageview)
 * Added VisitorCodeNotValid exception when exceeding the limit of 255 chars for [`activateFeature`](https://developers.kameleoon.com/php-sdk.html#activatefeature) ,  [`triggerExperiment`](https://developers.kameleoon.com/php-sdk.html#triggerexperiment) , [`trackConversion`](https://developers.kameleoon.com/php-sdk.html#trackConversion) ,
     [`addData`](https://developers.kameleoon.com/php-sdk.html#addData) , [`flush`](https://developers.kameleoon.com/php-sdk.html#flush)
@@ -284,7 +291,7 @@ All notable changes to this project will be documented in this file.
 All of the versions listed below are no longer supported and we strongly advise to upgrade to the latest version.
 
 ## 2.0.7
-* Performance improvements
+* Improvements SDK stability
 
 ## 2.0.6
 * Retrieve experiments with status used_as_personalization

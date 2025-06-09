@@ -1,6 +1,6 @@
 {
   "name": "kameleoon/kameleoon-client-php",
-  "versions": "4.9.1",
+  "versions": "4.9.2",
   "description": "Kameleoon SDK PHP",
   "keywords": [
     "kameleoon",
@@ -23,5 +23,9 @@
     "classmap": [
       "tests/"
     ]
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^9.5",
+    "phpstan/phpstan": "^1.10"
   }
 }
