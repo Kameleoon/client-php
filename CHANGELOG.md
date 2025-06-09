@@ -46,6 +46,13 @@ All notable changes to this project will be documented in this file.
 ### Features
 * Added support for Contextual Bandit evaluations. Calling [`getRemoteVisitorData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#getremotevisitordata) with the `cbs=true` flag is required for this feature to function correctly. Platform-wide release expected in March 2025.
 
+## 4.9.2 - 2025-03-06
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Bug fixes
+* Fixed an issue where several PHP processes sharing the same storage could each update the local client-config sequentially, forming a queue.
+* Fixed an issue where an SDK response could be delayed during an OAuth endpoint outage, caused by requesting an access token on every call to methods sending tracking data.
+
 ## 4.9.1 - 2025-03-06
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
