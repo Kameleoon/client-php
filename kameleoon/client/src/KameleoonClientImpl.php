@@ -88,7 +88,10 @@ class KameleoonClientImpl implements KameleoonClient
 
         $this->clientConfig = $clientConfig;
 
-        $kameleoonWorkDir = $this->clientConfig->getKameleoonWorkDir() . "/";
+        $kameleoonWorkDir = $this->clientConfig->getKameleoonWorkDir();
+        if (!empty($kameleoonWorkDir) && (substr($kameleoonWorkDir, -1) !== '/')) {
+            $kameleoonWorkDir .= '/';
+        }
         $this->configurationFilePath = $kameleoonWorkDir . self::FILE_CONFIGURATION_NAME . $siteCode . ".json";
 
         if (!is_dir($kameleoonWorkDir)) {

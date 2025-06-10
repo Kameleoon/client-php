@@ -15,11 +15,12 @@ do
 done
 if [ -f "$conf_file" ]
 then
-	kameleoon_work_dir=$("cat" $conf_file | "php" -r 'print(json_decode(file_get_contents("php://stdin"))->kameleoon_work_dir);')
+	kameleoon_work_dir=$("cat" $conf_file | "php" -r 'print(json_decode(file_get_contents("php://stdin"))->kameleoon_work_dir ?? "");')
+	kameleoon_work_dir=${kameleoon_work_dir%/}
 fi
 if [ -z "$kameleoon_work_dir" ]
 then
-	kameleoon_work_dir=/tmp/kameleoon/php-client/
+	kameleoon_work_dir=/tmp/kameleoon/php-client
 fi
 
 function get_request_file_minute {
