@@ -14,9 +14,9 @@ class Rule extends TargetingObject
     public $exposition;
     public ?int $respoolTime;
 
-    public function __construct($rule)
+    public function __construct($rule, array $segments)
     {
-        parent::__construct($rule);
+        parent::__construct($rule, $segments);
         $this->id = $rule->id ?? 0;
         $this->order = $rule->order;
         $this->type = $rule->type;

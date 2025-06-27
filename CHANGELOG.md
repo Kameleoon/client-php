@@ -1,6 +1,12 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.14.0 - 2025-06-27
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Features
+* Added support for using a Custom Data value for traffic bucketing instead of the default visitor code. [Learn More](https://help.kameleoon.com/create-feature-flag/#Advanced_Flag_Settings).
+
 ## 4.13.2 - 2025-06-10
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.

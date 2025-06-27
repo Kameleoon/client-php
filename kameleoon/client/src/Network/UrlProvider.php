@@ -19,7 +19,7 @@ class UrlProvider
     public const DEFAULT_EVENTS_DOMAIN = "events.kameleoon.eu";
     public const DEFAULT_CONFIGURATION_DOMAIN = "sdk-config.kameleoon.eu";
     public const DEFAULT_ACCESS_TOKEN_DOMAIN = "api.kameleoon.com";
-    const CONFIGURATION_API_URL_FORMAT = "https://%s/%s";
+    const CONFIGURATION_API_URL_FORMAT = "https://%s/v3/%s";
     const RT_CONFIGURATION_URL_FORMAT = "https://%s:8110/sse";
     const ACCESS_TOKEN_URL_FORMAT = "https://%s/oauth/token";
     const DATA_API_URL_FORMAT = "https://%s%s?%s";

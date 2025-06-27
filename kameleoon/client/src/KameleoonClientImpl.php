@@ -406,8 +406,8 @@ class KameleoonClientImpl implements KameleoonClient
         if ($forcedVariation !== null) {
             $evalExp = EvaluatedExperiment::fromForcedVariation($forcedVariation);
         } elseif (
-            $this->isVisitorNotInHoldout($visitor, $visitorCode, $track, $save) &&
-            $this->isFFUnrestrictedByMEGroup($visitor, $visitorCode, $featureFlag)
+            $this->isVisitorNotInHoldout($visitor, $visitorCode, $track, $save, $featureFlag->bucketingCustomDataIndex)
+            && $this->isFFUnrestrictedByMEGroup($visitor, $visitorCode, $featureFlag)
         ) {
             $evalExp = $this->calculateVariationKeyForFeature($visitorCode, $featureFlag);
         } else {
@@ -440,7 +440,7 @@ class KameleoonClientImpl implements KameleoonClient
         );
         $unrestricted = true;
         $meGroup = $this->dataManager->getDataFile()->getMEGroups()[$featureFlag->meGroupName];
-        $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+        $codeForHash = self::getCodeForHash($visitor, $visitorCode, $featureFlag->bucketingCustomDataIndex);
         $meGroupHash = Hasher::obtainHashForMEGroup($codeForHash, $featureFlag->meGroupName);
         KameleoonLogger::debug(
             "Calculated ME group hash %s for code: '%s', meGroup: '%s'",
@@ -459,21 +459,20 @@ class KameleoonClientImpl implements KameleoonClient
         return $unrestricted;
     }
 
-    private function isVisitorNotInHoldout(?Visitor $visitor, string $visitorCode, bool $track, bool $save): bool
-    {
+    private function isVisitorNotInHoldout(
+        ?Visitor $visitor, string $visitorCode, bool $track, bool $save, ?int $bucketingCustomDataIndex
+    ): bool {
         $holdout = $this->dataManager->getDataFile()->getHoldout();
         if ($holdout === null) {
             return true;
         }
         $inHoldoutVariationKey = "in-holdout";
         KameleoonLogger::debug(
-            "CALL: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s)",
-            $visitorCode,
-            $track,
-            $save,
+            "CALL: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s"
+                . "bucketingCustomDataIndex: %s)", $visitorCode, $track, $save, $bucketingCustomDataIndex
         );
         $isNotInHoldout = true;
-        $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+        $codeForHash = self::getCodeForHash($visitor, $visitorCode, $bucketingCustomDataIndex);
         $variationHash = Hasher::obtain($codeForHash, $holdout->id);
         KameleoonLogger::debug("Calculated holdout hash %s for code '%s'", $variationHash, $codeForHash);
         $varByExp = $holdout->getVariationByHash($variationHash);
@@ -485,12 +484,9 @@ class KameleoonClientImpl implements KameleoonClient
             }
         }
         KameleoonLogger::debug(
-            "RETURN: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s)" .
-                " -> (isNotInHoldout: %s)",
-            $visitorCode,
-            $track,
-            $save,
-            $isNotInHoldout,
+            "RETURN: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s," .
+                " bucketingCustomDataIndex: %s) -> (isNotInHoldout: %s)",
+            $visitorCode, $track, $save, $bucketingCustomDataIndex, $isNotInHoldout
         );
         return $isNotInHoldout;
     }
@@ -956,10 +952,21 @@ class KameleoonClientImpl implements KameleoonClient
         );
     }
 
-    private static function getCodeForHash(?Visitor $visitor, string $visitorCode): string
-    {
-        // use mappingIdentifier instead of visitorCode if it was set up
-        $mappingIdentifier = ($visitor !== null) ? $visitor->getMappingIdentifier() : null;
+    private static function getCodeForHash(
+        ?Visitor $visitor, string $visitorCode, ?int $bucketingCustomDataIndex
+    ): string {
+        if ($visitor === null) {
+            return $visitorCode;
+        }
+        // 1. Try to use the bucketing custom data's value if bucketingCustomDataId is defined
+        if ($bucketingCustomDataIndex !== null) {
+            $bucketingCustomData = $visitor->getCustomData()[$bucketingCustomDataIndex] ?? null;
+            if (($bucketingCustomData !== null) && !empty($bucketingCustomData->getValues())) {
+                return $bucketingCustomData->getValues()[0];
+            }
+        }
+        // 2. Use mappingIdentifier instead of visitorCode if it was set up
+        $mappingIdentifier = $visitor->getMappingIdentifier();
         return ($mappingIdentifier === null) ? $visitorCode : $mappingIdentifier;
     }
 
@@ -1090,15 +1097,15 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->updateConfigurationFileModificationTime()");
     }
 
-    private function evaluateCBScores(?Visitor $visitor, string $visitorCode, ?Rule $rule): ?EvaluatedExperiment
-    {
+    private function evaluateCBScores(
+        ?Visitor $visitor, string $visitorCode, ?Rule $rule, ?int $bucketingCustomDataIndex
+    ): ?EvaluatedExperiment {
         if (($visitor === null) || ($visitor->getCBScores() === null)) {
             return null;
         }
         KameleoonLogger::debug(
-            "CALL: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s)",
-            $visitorCode,
-            $rule,
+            "CALL: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s, "
+                . "bucketingCustomDataIndex: %s)", $visitorCode, $rule, $bucketingCustomDataIndex
         );
         $evalExp = null;
         $varIdGroupByScores = $visitor->getCBScores()->getValues()[$rule->experiment->id] ?? null;
@@ -1119,7 +1126,7 @@ class KameleoonClientImpl implements KameleoonClient
             if (!empty($varByExpInCbs)) {
                 $size = count($varByExpInCbs);
                 if ($size > 1) { // if more than one varByExp for score -> randomly get
-                    $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+                    $codeForHash = self::getCodeForHash($visitor, $visitorCode, $bucketingCustomDataIndex);
                     $variationHash = Hasher::obtain($codeForHash, $rule->experiment->id, $rule->respoolTime);
                     KameleoonLogger::debug("Calculated CBS hash %s for code '%s'", $variationHash, $codeForHash);
                     $idx = (int)($variationHash * $size);
@@ -1133,10 +1140,9 @@ class KameleoonClientImpl implements KameleoonClient
             }
         }
         KameleoonLogger::debug(
-            "RETURN: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s) -> (evalExp: %s)",
-            $visitorCode,
-            $rule,
-            $evalExp,
+            "RETURN: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s, "
+                . "bucketingCustomDataIndex: %s) -> (evalExp: %s)",
+            $visitorCode, $rule, $bucketingCustomDataIndex, $evalExp
         );
         return $evalExp;
     }
@@ -1152,7 +1158,7 @@ class KameleoonClientImpl implements KameleoonClient
         );
         // use mappingIdentifier instead of visitorCode if it was set up
         $visitor = $this->visitorManager->getVisitor($visitorCode);
-        $codeForHash = self::getCodeForHash($visitor, $visitorCode);
+        $codeForHash = self::getCodeForHash($visitor, $visitorCode, $featureFlag->bucketingCustomDataIndex);
         $evalExp = null;
         // no rules -> return defaultVariationKey
         foreach ($featureFlag->rules as $rule) {
@@ -1176,7 +1182,9 @@ class KameleoonClientImpl implements KameleoonClient
                 // check main expostion for rule with hashRule
                 if ($hashRule <= $rule->exposition) {
                     // check main exposition for rule with hashRule
-                    $evalExp = $this->evaluateCBScores($visitor, $visitorCode, $rule);
+                    $evalExp = $this->evaluateCBScores(
+                        $visitor, $visitorCode, $rule, $featureFlag->bucketingCustomDataIndex
+                    );
                     if ($evalExp !== null) {
                         break;
                     }

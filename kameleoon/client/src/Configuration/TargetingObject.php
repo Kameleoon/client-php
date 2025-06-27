@@ -10,9 +10,10 @@ class TargetingObject
     private $segment;
     private $targetingSegment;
 
-    public function __construct($targetingObject)
+    public function __construct($targetingObject, array $segments)
     {
-        $this->segment = $targetingObject->segment;
+        $segmentId = $targetingObject->segmentId;
+        $this->segment = ($segmentId !== null) ? $segments[$segmentId] ?? null : null;
     }
 
     public function getTargetingSegment()

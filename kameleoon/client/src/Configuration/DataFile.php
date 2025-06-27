@@ -31,10 +31,11 @@ class DataFile
             "CALL: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
         $this->environment = $environment;
         $this->lastModified = self::readLastModified($jsonDataFile);
-        $this->featureFlags = self::createFromJSON($jsonDataFile->featureFlags, "featureKey", FeatureFlag::class);
+        $segments = self::parseSegments($jsonDataFile);
+        $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
+        $this->featureFlags = self::parseFeatureFlags($jsonDataFile, $segments, $this->customDataInfo);
         $this->meGroups = self::makeMEGroups($this->featureFlags);
         $this->settings = new Settings($jsonDataFile);
-        $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
         $this->holdout = is_object($jsonDataFile->holdout ?? null) ? new Experiment($jsonDataFile->holdout) : null;
         KameleoonLogger::debug(
             "RETURN: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
@@ -140,18 +141,35 @@ class DataFile
         return is_string($lastModified) ? $lastModified : null;
     }
 
-    private static function createFromJSON($json, $key, $class): array
+    private static function parseSegments($json): array
     {
-        $arrayObj = array();
+        $segments = [];
         try {
-            foreach ($json as $obj) {
-                $arrayObj[$obj->$key] = new $class($obj);
+            foreach ($json->segments as $obj) {
+                $segmentId = $obj->id ?? null;
+                if ($segmentId !== null) {
+                    $segments[$segmentId] = $obj;
+                }
             }
         } catch (Exception $e) {
-            KameleoonLogger::error("Data file configuration cannot be parsed: " . $e->getMessage());
+            KameleoonLogger::error("Failed to parse segments in configuration: " . $e->getMessage());
             return [];
         }
-        return $arrayObj;
+        return $segments;
+    }
+
+    private static function parseFeatureFlags($json, array $segments, CustomDataInfo $cdi): array
+    {
+        $ffs = [];
+        try {
+            foreach ($json->featureFlags as $obj) {
+                $ffs[$obj->featureKey] = new FeatureFlag($obj, $segments, $cdi);
+            }
+        } catch (Exception $e) {
+            KameleoonLogger::error("Failed to parse feature flags in configuration: " . $e->getMessage());
+            return [];
+        }
+        return $ffs;
     }
 
     public function getFeatureFlag(string $featureKey): FeatureFlag
