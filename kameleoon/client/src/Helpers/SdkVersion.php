@@ -2,7 +2,7 @@
 
 namespace Kameleoon\Helpers;
 
-define("VERSION_SDK", "4.14.0");
+define("VERSION_SDK", "4.14.1");
 
 class SdkVersion
 {

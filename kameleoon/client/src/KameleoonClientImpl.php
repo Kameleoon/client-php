@@ -18,6 +18,7 @@ use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureExperimentNotFound;
 use Kameleoon\Exception\FeatureVariableNotFound;
 use Kameleoon\Exception\FeatureVariationNotFound;
+use Kameleoon\Exception\KameleoonException;
 use Kameleoon\Exception\SiteCodeIsEmpty;
 use Kameleoon\Helpers\Hasher;
 use Kameleoon\Helpers\VisitorCodeManager;
@@ -94,8 +95,10 @@ class KameleoonClientImpl implements KameleoonClient
         }
         $this->configurationFilePath = $kameleoonWorkDir . self::FILE_CONFIGURATION_NAME . $siteCode . ".json";
 
-        if (!is_dir($kameleoonWorkDir)) {
-            mkdir($kameleoonWorkDir, 0755, true);
+        if (!(is_dir($kameleoonWorkDir) || mkdir($kameleoonWorkDir, 0755, true) || is_dir($kameleoonWorkDir))) {
+            throw new KameleoonException(
+                "Failed to create or access the Kameleoon working directory: $kameleoonWorkDir"
+            );
         }
 
         $networkManagerFactory = $networkManagerFactory ?? new NetworkManagerFactoryImpl();
@@ -999,7 +1002,9 @@ class KameleoonClientImpl implements KameleoonClient
         if ($dataFileShouldBeUpdated) {
             if ($dataFileEmpty) {
                 $fp = fopen($this->configurationFilePath, "a");
-                fclose($fp);
+                if ($fp !== false) {
+                    fclose($fp);
+                }
             }
             $this->updateConfigurationExclusively($this->getTimeout($timeout), $dataFileEmpty);
         }
@@ -1029,15 +1034,19 @@ class KameleoonClientImpl implements KameleoonClient
     private function updateConfigurationExclusively(...$args)
     {
         $fp = fopen($this->configurationFilePath, "r+");
-        try
-        {
+        if ($fp === false) {
+            KameleoonLogger::error("Cannot update configuration file");
+            if (file_exists($this->configurationFilePath)) {
+                $this->loadDataFileLocal();
+            }
+            throw new DataFileInvalid("Cannot read local configuration file");
+        }
+        try {
             if (flock($fp, LOCK_EX)) {
                 $this->updateConfiguration(...$args);
                 flock($fp, LOCK_UN);
             }
-        }
-        finally
-        {
+        } finally {
             fclose($fp);
         }
     }
