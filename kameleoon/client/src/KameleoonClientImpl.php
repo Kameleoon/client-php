@@ -8,6 +8,7 @@ use Kameleoon\Configuration\FeatureFlag;
 use Kameleoon\Configuration\Rule;
 use Kameleoon\Configuration\Variation;
 use Kameleoon\Data\CustomData;
+use Kameleoon\Data\TargetedSegment;
 use Kameleoon\Data\Manager\AssignedVariation;
 use Kameleoon\Data\Manager\ForcedExperimentVariation;
 use Kameleoon\Data\Manager\Visitor;
@@ -1179,7 +1180,7 @@ class KameleoonClientImpl implements KameleoonClient
                 break;
             }
             // check if visitor is targeted for rule, else next rule
-            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id, $rule)) {
+            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id, $rule->segment)) {
                 if ($forcedVariation !== null) {
                     // Forcing experiment variation in targeting-only mode
                     $evalExp = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
@@ -1255,12 +1256,13 @@ class KameleoonClientImpl implements KameleoonClient
         ?int $timeout = null
     ): void {
         KameleoonLogger::info(
-            "CALL: KameleoonClientImpl.SetForcedVariation(visitorCode: '%s', experimentId: %s," .
-                " variationKey: %s, forceTargeting: %s)",
+            "CALL: KameleoonClientImpl->setForcedVariation(visitorCode: '%s', experimentId: %s," .
+                " variationKey: %s, forceTargeting: %s, timeout: %s)",
             $visitorCode,
             $experimentId,
             ($variationKey === null) ? "null" : "'$variationKey'",
-            $forceTargeting
+            $forceTargeting,
+            $timeout
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->loadConfiguration($timeout);
@@ -1283,12 +1285,37 @@ class KameleoonClientImpl implements KameleoonClient
             }
         }
         KameleoonLogger::info(
-            "RETURN: KameleoonClientImpl.SetForcedVariation(visitorCode: '%s', experimentId: %s," .
-                " variationKey: %s, forceTargeting: %s)",
+            "RETURN: KameleoonClientImpl->setForcedVariations(visitorCode: '%s', experimentId: %s," .
+                " variationKey: %s, forceTargeting: %s, timeout: %s)",
             $visitorCode,
             $experimentId,
             ($variationKey === null) ? "null" : "'$variationKey'",
-            $forceTargeting
+            $forceTargeting,
+            $timeout
+        );
+    }
+
+    public function evaluateAudiences(string $visitorCode, ?int $timeout = null): void
+    {
+        KameleoonLogger::info(
+            "CALL: KameleoonClientImpl->evaluateAudiences(visitorCode: '%s', timeout: %s)",
+            $visitorCode, $timeout
+        );
+        VisitorCodeManager::validateVisitorCode($visitorCode);
+        $this->loadConfiguration($timeout);
+        $segments = [];
+        foreach ($this->dataManager->getDataFile()->getAudienceTrackingSegments() as $segment) {
+            if ($this->targetingManager->checkTargeting($visitorCode, null, $segment)) {
+                $segments[] = new TargetedSegment($segment->getId());
+            }
+        }
+        if (!empty($segments)) {
+            $this->visitorManager->addData($visitorCode, ...$segments);
+        }
+        $this->trackingManager->trackVisitor($visitorCode, false, $timeout);
+        KameleoonLogger::info(
+            "RETURN: KameleoonClientImpl->evaluateAudiences(visitorCode: '%s', timeout: %s)",
+            $visitorCode, $timeout
         );
     }
 }

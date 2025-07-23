@@ -18,6 +18,7 @@ use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\OperatingSystem;
 use Kameleoon\Data\PageView;
 use Kameleoon\Data\Personalization;
+use Kameleoon\Data\TargetedSegment;
 use Kameleoon\Data\UniqueIdentifier;
 use Kameleoon\Data\UserAgent;
 use Kameleoon\Data\VisitorVisits;
@@ -218,6 +219,11 @@ class VisitorImpl implements Visitor
         return $this->data->getPersonalizations();
     }
 
+    public function getTargetedSegments(): array
+    {
+        return $this->data->getTargetedSegments();
+    }
+
     public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
     {
         return $this->data->getForcedFeatureVariation($featureKey);
@@ -291,6 +297,9 @@ class VisitorImpl implements Visitor
             case $data instanceof Personalization:
                 $this->data->addPersonalization($data, $overwrite);
                 break;
+            case $data instanceof TargetedSegment:
+                $this->data->addTargetedSegment($data);
+                break;
             case $data instanceof ForcedFeatureVariation:
                 $this->data->addForcedFeatureVariation($data);
                 break;
@@ -321,6 +330,7 @@ class VisitorData
     private array $collectionConversion;
     private array $mapAssignedVariation;
     private array $personalizations;
+    private array $targetedSegments;
     private array $forcedVariations;
     private array $simulatedVariations;
     private ?Device $device;
@@ -373,6 +383,11 @@ class VisitorData
         if (isset($this->mapAssignedVariation)) {
             foreach ($this->mapAssignedVariation as $assignedVariation) {
                 yield $assignedVariation;
+            }
+        }
+        if (isset($this->targetedSegments)) {
+            foreach ($this->targetedSegments as $targetedSegment) {
+                yield $targetedSegment;
             }
         }
         if (isset($this->collectionConversion)) {
@@ -479,6 +494,11 @@ class VisitorData
     public function getPersonalizations(): array
     {
         return $this->personalizations ?? [];
+    }
+
+    public function getTargetedSegments(): array
+    {
+        return $this->targetedSegments ?? [];
     }
 
     public function getForcedFeatureVariation(string $featureKey): ?ForcedFeatureVariation
@@ -648,6 +668,17 @@ class VisitorData
         if ($overwrite || !array_key_exists($personalization->getId(), $this->getOrCreatePersonalizations())) {
             $this->getOrCreatePersonalizations()[$personalization->getId()] = $personalization;
         }
+    }
+
+    private function &getOrCreateTargetedSegments(): array
+    {
+        $this->targetedSegments ??= array();
+        return $this->targetedSegments;
+    }
+
+    public function addTargetedSegment(TargetedSegment $targetedSegment): void
+    {
+        $this->getOrCreateTargetedSegments()[$targetedSegment->getId()] = $targetedSegment;
     }
 
     public function addForcedFeatureVariation(ForcedFeatureVariation $variation): void

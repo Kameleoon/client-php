@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kameleoon\Targeting;
 
-use Kameleoon\Configuration\TargetingObject;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Logging\KameleoonLogger;
@@ -46,20 +45,17 @@ class TargetingManagerImpl implements TargetingManager
         $this->visitorManager = $visitorManager;
     }
 
-    public function checkTargeting(string $visitorCode, int $containerID, TargetingObject $targetingObject): bool
+    public function checkTargeting(string $visitorCode, ?int $containerID, ?TargetingSegment $segment): bool
     {
         KameleoonLogger::debug(
-            "CALL: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, rule: %s)",
-            $visitorCode,
-            $containerID,
-            $targetingObject
+            "CALL: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, segment: %s)",
+            $visitorCode, $containerID, $segment
         );
         $targeting = true;
 
         // performing targeting
-        $targetingSegment = $targetingObject->getTargetingSegment();
-        if (null != $targetingSegment) {
-            $targetingTree = $targetingSegment->getTargetingTree();
+        if ($segment !== null) {
+            $targetingTree = $segment->getTargetingTree();
             // obtaining targeting checking result and assigning targeting to container
             $targeting = TargetingEngine::checkTargetingTree(
                 $targetingTree,
@@ -69,19 +65,16 @@ class TargetingManagerImpl implements TargetingManager
             );
         }
         if ($targeting) {
-            KameleoonLogger::info("Visitor '%s' has been targeted for %s", $visitorCode, $targetingObject);
+            KameleoonLogger::info("Visitor '%s' has been targeted for %s", $visitorCode, $segment);
         }
         KameleoonLogger::debug(
-            "RETURN: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, rule: %s) -> (targeted: %s)",
-            $visitorCode,
-            $containerID,
-            $targetingObject,
-            $targeting
+            "RETURN: TargetingManager.checkTargeting(visitorCode: '%s', containerID: %s, segment: %s)" .
+            " -> (targeted: %s)", $visitorCode, $containerID, $segment, $targeting
         );
         return $targeting;
     }
 
-    private function getConditionData(string $type, string $visitorCode, int $campaignId)
+    private function getConditionData(string $type, string $visitorCode, ?int $campaignId)
     {
         KameleoonLogger::debug(
             "CALL: TargetingManager.getConditionData(type: '%s', visitorCode: '%s', campaignId: %s)",
@@ -89,6 +82,7 @@ class TargetingManagerImpl implements TargetingManager
             $visitorCode,
             $campaignId
         );
+        $conditionData = null;
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         switch ($type) {
             case CustomDatum::TYPE:
@@ -125,11 +119,13 @@ class TargetingManagerImpl implements TargetingManager
                 $conditionData = ($visitor != null) ? $visitor->getPersonalizations() : [];
                 break;
             case ExclusiveExperimentCondition::TYPE:
-                $conditionData = [
-                    $campaignId,
-                    ($visitor != null) ? $visitor->getAssignedVariations() : [],
-                    ($visitor != null) ? $visitor->getPersonalizations() : []
-                ];
+                if ($campaignId !== null) {
+                    $conditionData = [
+                        $campaignId,
+                        ($visitor != null) ? $visitor->getAssignedVariations() : [],
+                        ($visitor != null) ? $visitor->getPersonalizations() : []
+                    ];
+                }
                 break;
             case SdkLanguageCondition::TYPE:
                 $conditionData = new SdkInfo(SdkVersion::getName(), SdkVersion::getVersion());
@@ -165,17 +161,11 @@ class TargetingManagerImpl implements TargetingManager
             case KcsHeatRangeCondition::TYPE:
                 $conditionData = ($visitor != null) ? $visitor->getKcsHeat() : null;
                 break;
-            default:
-                $conditionData = null;
-                break;
         }
 
         KameleoonLogger::debug(
-            "CALL: TargetingManager.getConditionData(type: '%s', visitorCode: '%s', campaignId: %s) -> (conditionData: %s)",
-            $type,
-            $visitorCode,
-            $campaignId,
-            $conditionData
+            "CALL: TargetingManager.getConditionData(type: '%s', visitorCode: '%s', campaignId: %s)" .
+            " -> (conditionData: %s)", $type, $visitorCode, $campaignId, $conditionData
         );
         return $conditionData;
     }

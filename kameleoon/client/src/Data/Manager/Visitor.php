@@ -169,6 +169,13 @@ interface Visitor
     public function getPersonalizations(): array;
 
     /**
+     * Retrieves a map of targeted segments IDs to the corresponding targeted segment for this Visitor.
+     * 
+     * @return array
+     */
+    public function getTargetedSegments(): array;
+
+    /**
      * Returns the visitor's forced feature variation by its feature key or `null` if it does not exist.
      * 
      * @param string $featureKey

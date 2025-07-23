@@ -97,6 +97,7 @@ class QueryParams
     public const REVENUE = "revenue";
     public const SDK_NAME = "sdkName";
     public const SDK_VERSION = "sdkVersion";
+    public const SEGMENT_ID = "id";
     public const SITE_CODE = "siteCode";
     public const STATIC_DATA = "staticData";
     public const TIME_SINCE_PREVIOUS_VISIT = "timeSincePreviousVisit";

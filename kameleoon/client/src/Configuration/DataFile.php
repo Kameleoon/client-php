@@ -8,6 +8,7 @@ use Exception;
 use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureNotFound;
 use Kameleoon\Logging\KameleoonLogger;
+use Kameleoon\Targeting\TargetingSegment;
 
 class DataFile
 {
@@ -17,8 +18,9 @@ class DataFile
     private Settings $settings;
     private ?string $environment;
     private bool $hasAnyTDRule;
+    private array $segments;
+    private array $audienceTrackingSegments;
     private array $featureFlagById;
-    private array $ruleBySegmentId;
     private array $ruleInfoByExpId;
     private array $variationById;
     private CustomDataInfo $customDataInfo;
@@ -31,9 +33,9 @@ class DataFile
             "CALL: new DataFile(jsonDataFile: %s, environment: '%s')", $jsonDataFile, $environment);
         $this->environment = $environment;
         $this->lastModified = self::readLastModified($jsonDataFile);
-        $segments = self::parseSegments($jsonDataFile);
+        [$this->segments, $this->audienceTrackingSegments] = self::parseSegments($jsonDataFile);
         $this->customDataInfo = new CustomDataInfo($jsonDataFile->customData ?? null);
-        $this->featureFlags = self::parseFeatureFlags($jsonDataFile, $segments, $this->customDataInfo);
+        $this->featureFlags = self::parseFeatureFlags($jsonDataFile, $this->segments, $this->customDataInfo);
         $this->meGroups = self::makeMEGroups($this->featureFlags);
         $this->settings = new Settings($jsonDataFile);
         $this->holdout = is_object($jsonDataFile->holdout ?? null) ? new Experiment($jsonDataFile->holdout) : null;
@@ -44,6 +46,16 @@ class DataFile
     public function getLastModified(): ?string
     {
         return $this->lastModified;
+    }
+
+    public function &getSegments(): array
+    {
+        return $this->segments;
+    }
+
+    public function &getAudienceTrackingSegments(): array
+    {
+        return $this->audienceTrackingSegments;
     }
 
     public function getFeatureFlags(): array
@@ -91,18 +103,6 @@ class DataFile
         return $featureFlag;
     }
 
-    public function getRuleBySegmentId(int $segmentId): ?Rule
-    {
-        KameleoonLogger::debug("CALL: DataFile->getRuleBySegmentId(segmentId: %s)", $segmentId);
-        if (!isset($this->ruleBySegmentId)) {
-            $this->ruleBySegmentId = $this->collectRuleBySegmentId();
-        }
-        $rule = $this->ruleBySegmentId[$segmentId] ?? null;
-        KameleoonLogger::debug("RETURN: DataFile->getRuleBySegmentId(segmentId: %s) -> (rule: %s)",
-            $segmentId, $rule);
-        return $rule;
-    }
-
     public function getRuleInfoByExpId(int $experimentId): ?RuleInfo
     {
         KameleoonLogger::debug("CALL: DataFile->getRuleInfoByExpId(experimentId: %s)", $experimentId);
@@ -144,18 +144,23 @@ class DataFile
     private static function parseSegments($json): array
     {
         $segments = [];
+        $audienceTrackingSegments = [];
         try {
             foreach ($json->segments as $obj) {
                 $segmentId = $obj->id ?? null;
                 if ($segmentId !== null) {
-                    $segments[$segmentId] = $obj;
+                    $segment = new TargetingSegment($obj);
+                    $segments[$segmentId] = $segment;
+                    if ($obj->audienceTracking ?? false) {
+                        $audienceTrackingSegments[] = $segment;
+                    }
                 }
             }
         } catch (Exception $e) {
             KameleoonLogger::error("Failed to parse segments in configuration: " . $e->getMessage());
-            return [];
+            return [[], []];
         }
-        return $segments;
+        return [$segments, $audienceTrackingSegments];
     }
 
     private static function parseFeatureFlags($json, array $segments, CustomDataInfo $cdi): array
@@ -228,17 +233,6 @@ class DataFile
             $featureFlagById[$ff->id] = $ff;
         }
         return $featureFlagById;
-    }
-
-    private function collectRuleBySegmentId(): array
-    {
-        $ruleBySegmentId = [];
-        foreach ($this->featureFlags as $ffKey => $ff) {
-            foreach ($ff->rules as $ruleKey => $rule) {
-                $ruleBySegmentId[intval($rule->getSegment()->id ?? null)] = $rule;
-            }
-        }
-        return $ruleBySegmentId;
     }
 
     private function collectRuleInfoByExpId(): array

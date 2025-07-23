@@ -276,4 +276,15 @@ interface KameleoonClient
         bool $forceTargeting = true,
         ?int $timeout = null
     ): void;
+
+    /**
+     * Evaluates the visitor against all available Audiences Explorer segments and tracks those that match.
+     * A detailed analysis of segment performance can then be performed directly in Audiences Explorer.
+     *
+     * @param string $visitorCode The unique visitor code identifying the visitor.
+     * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
+     * result. Optional (defaults to `null`).
+     * @throws Exception\VisitorCodeInvalid The provided **visitor code** is invalid.
+     */
+    public function evaluateAudiences(string $visitorCode, ?int $timeout = null): void;
 }

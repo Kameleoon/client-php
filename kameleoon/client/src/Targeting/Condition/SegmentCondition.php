@@ -28,11 +28,7 @@ class SegmentCondition extends TargetingCondition
         if (($dataFile == null) || ($getTargetedData == null)) {
             return false;
         }
-        $rule = $dataFile->getRuleBySegmentId($this->segmentId);
-        if ($rule === null) {
-            return false;
-        }
-        $targetingSegment = $rule->getTargetingSegment();
+        $targetingSegment = $dataFile->getSegments()[$this->segmentId] ?? null;
         if ($targetingSegment === null) {
             return false;
         }
