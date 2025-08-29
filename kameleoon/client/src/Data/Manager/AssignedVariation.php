@@ -11,6 +11,7 @@ use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
 use Kameleoon\Network\Sendable;
 
+/** @internal */
 class AssignedVariation extends Sendable implements BaseData
 {
     const RULE_TYPE_UNKNOWN = -1;

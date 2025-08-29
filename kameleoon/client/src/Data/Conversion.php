@@ -38,6 +38,7 @@ class Conversion extends Sendable implements Data
         return $this->goalId;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         $qb = new QueryBuilder(
@@ -59,14 +60,14 @@ class Conversion extends Sendable implements Data
         $addedIndices = array();
         $addComma = false;
         foreach ($this->metadata as $mcd) {
-            if (($mcd instanceof CustomData) && !array_key_exists($mcd->getId(), $addedIndices)) {
+            if (($mcd instanceof CustomData) && !array_key_exists($mcd->getIndex(), $addedIndices)) {
                 if ($addComma) {
                     $sb .= "%2C"; // ','
                 } else {
                     $addComma = true;
                 }
                 self::writeEncodedCustomData($mcd, $sb);
-                $addedIndices[$mcd->getId()] = true;
+                $addedIndices[$mcd->getIndex()] = true;
             }
         }
         $sb .= "%7D"; // '}'
@@ -76,7 +77,7 @@ class Conversion extends Sendable implements Data
     private static function writeEncodedCustomData(CustomData $cd, string &$sb): void
     {
         $sb .= "%22"; // '"'
-        $sb .= $cd->getId();
+        $sb .= $cd->getIndex();
         $sb .= "%22%3A%5B"; // '":['
         $values = $cd->getValues();
         for ($i = 0; $i < count($values); $i++) {

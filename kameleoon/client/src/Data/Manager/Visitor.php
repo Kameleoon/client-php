@@ -16,6 +16,7 @@ use Kameleoon\Data\Geolocation;
 use Kameleoon\Data\KcsHeat;
 use Kameleoon\Data\VisitorVisits;
 
+/** @internal */
 interface Visitor
 {
     public function getTimeStarted(): int;

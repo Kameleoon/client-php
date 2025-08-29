@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kameleoon\Data;
 
+/** @internal */
 final class Visit
 {
     private int $timeStarted;

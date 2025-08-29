@@ -10,6 +10,7 @@ use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
 use Kameleoon\Network\Sendable;
 
+/** @internal */
 final class TargetedSegment extends Sendable implements BaseData
 {
     public const EVENT_TYPE = "targetingSegment";

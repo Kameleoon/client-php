@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kameleoon\Data;
 
+/** @internal */
 final class ScoredVarId {
     public int $variationId;
     public float $score;

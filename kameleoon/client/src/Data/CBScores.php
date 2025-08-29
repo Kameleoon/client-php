@@ -6,6 +6,7 @@ namespace Kameleoon\Data;
 
 use Kameleoon\Helpers\StringHelper;
 
+/** @internal */
 final class CBScores implements BaseData
 {
     // keys = experiment IDs / values = list of variation IDs ordered descending

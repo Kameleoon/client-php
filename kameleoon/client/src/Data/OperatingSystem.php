@@ -42,6 +42,7 @@ class OperatingSystem extends Sendable implements Data
         return $this->type;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         return (string)new QueryBuilder(

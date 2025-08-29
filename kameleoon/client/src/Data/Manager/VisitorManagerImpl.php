@@ -12,6 +12,7 @@ use Kameleoon\Data\CustomData;
 use Kameleoon\Data\MappingIdentifier;
 use Kameleoon\Managers\Data\DataManager;
 
+/** @internal */
 class VisitorManagerImpl implements VisitorManager
 {
     private array $visitors;
@@ -57,8 +58,11 @@ class VisitorManagerImpl implements VisitorManager
         $cdi = ($dataFile != null) ? $dataFile->getCustomDataInfo() : null;
         $dataToAdd = [];
         foreach ($data as $d) {
-            if (($d instanceof CustomData) && ($cdi != null)) {
-                $dataToAdd[] = $this->handleCustomData($cdi, $visitorCode, $visitor, $d);
+            if ($d instanceof CustomData) {
+                $d = $this->handleCustomData($cdi, $visitorCode, $visitor, $d);
+                if ($d !== null) {
+                    $dataToAdd[] = $d;
+                }
             } else {
                 $dataToAdd[] = $d;
             }
@@ -70,10 +74,22 @@ class VisitorManagerImpl implements VisitorManager
     }
 
     private function handleCustomData(
-        CustomDataInfo $cdi, string $visitorCode, Visitor $visitor, CustomData $cd): CustomData
+        ?CustomDataInfo $cdi, string $visitorCode, Visitor $visitor, CustomData $cd): ?CustomData
     {
+        if ($cd->getName() !== null) {
+            if ($cdi === null) {
+                return null;
+            }
+            $cdIndex = $cdi->getCustomDataIndexByName($cd->getName());
+            if ($cdIndex === null) {
+                return null;
+            }
+            $cd = $cd->namedToIndexed($cdIndex);
+        } elseif ($cdi === null) {
+            return $cd;
+        }
         // We shouldn't send custom data with local only type
-        if ($cdi->isLocalOnly($cd->getId())) {
+        if ($cdi->isLocalOnly($cd->getIndex())) {
             $cd->markAsSent();
         }
         // If mappingIdentifier is passed, we should link anonymous visitor with real unique userId.
@@ -93,7 +109,7 @@ class VisitorManagerImpl implements VisitorManager
 
     private static function isMappingIdentifier(CustomDataInfo $cdi, CustomData $cd): bool
     {
-        return $cdi->isMappingIdentifier($cd->getId())
+        return $cdi->isMappingIdentifier($cd->getIndex())
             && !empty($cd->getValues()) && (($cd->getValues()[0] ?? null) != null);
     }
 }

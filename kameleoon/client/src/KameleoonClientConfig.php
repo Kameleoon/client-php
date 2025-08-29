@@ -154,13 +154,16 @@ class KameleoonClientConfig
     public function __toString()
     {
         return sprintf(
-            "KameleoonClientConfig{refreshInterval:%s,defaultTimeout:%s,environment:'%s',clientId:'%s',clientSecret:'%s',networkDomain:'%s'}",
+            "KameleoonClientConfig{kameleoonWorkDir:'%s',refreshInterval:%s,defaultTimeout:%s,environment:'%s',
+                clientId:'%s',clientSecret:'%s',networkDomain:'%s',cookieOptions:%s}",
+            $this->kameleoonWorkDir,
             $this->refreshIntervalSecond,
             $this->defaultTimeoutMillisecond,
             $this->environment,
             StringHelper::secret($this->clientId),
             StringHelper::secret($this->clientSecret),
-            $this->networkDomain
+            $this->networkDomain,
+            $this->cookieOptions
         );
     }
 }
@@ -217,6 +220,17 @@ class CookieOptions
             $cookieOption["secure"] ?? false,
             $cookieOption["http_only"] ?? false,
             $cookieOption["samesite"] ?? self::DEFAULT_SAMESITE,
+        );
+    }
+
+    public function __toString()
+    {
+        return sprintf(
+            "CookieOptions{topLevelDomain:'%s',secure:%b,httpOnly:%b,sameSite:'%s'}",
+            $this->topLevelDomain,
+            $this->secure,
+            $this->httpOnly,
+            $this->sameSite,
         );
     }
 }

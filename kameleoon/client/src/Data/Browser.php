@@ -45,6 +45,7 @@ class Browser extends Sendable implements Data
         return $this->version;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         $qb = new QueryBuilder(

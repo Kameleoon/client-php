@@ -33,6 +33,7 @@ class PageView extends Sendable implements Data
         return $this->title;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         $qb = new QueryBuilder(

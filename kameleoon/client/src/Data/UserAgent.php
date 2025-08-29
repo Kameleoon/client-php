@@ -18,6 +18,7 @@ class UserAgent implements Data
         return $this->value;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         return "";

@@ -7,6 +7,7 @@ namespace Kameleoon\Data\Manager;
 use Kameleoon\Configuration\Rule;
 use Kameleoon\Configuration\VariationByExposition;
 
+/** @internal */
 class ForcedFeatureVariation extends ForcedVariation
 {
     private string $featureKey;

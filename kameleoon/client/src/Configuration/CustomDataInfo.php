@@ -14,6 +14,7 @@ class CustomDataInfo
     private array $localOnly;
     private array $visitorScope;
     private array $customDataIndexById;
+    private array $customDataIndexByName;
     private int $mappingIdentifierIndex;
 
     public function __construct($json)
@@ -21,6 +22,7 @@ class CustomDataInfo
         $this->localOnly = [];
         $this->visitorScope = [];
         $this->customDataIndexById = [];
+        $this->customDataIndexByName = [];
         $this->mappingIdentifierIndex = self::UNDEFINED_INDEX;
         if (!is_array($json)) {
             return;
@@ -35,10 +37,16 @@ class CustomDataInfo
             if (($cd->scope ?? null) == self::SCOPE_VISITOR) {
                 array_push($this->visitorScope, $cd->index ?? self::UNDEFINED_INDEX);
             }
-            $cdId = $cd->id ?? null;
             $cdIndex = $cd->index ?? null;
-            if (($cdId !== null) && ($cdIndex !== null)) {
-                $this->customDataIndexById[$cdId] = $cdIndex;
+            if ($cdIndex !== null) {
+                $cdId = $cd->id ?? null;
+                if ($cdId !== null) {
+                    $this->customDataIndexById[$cdId] = $cdIndex;
+                }
+                $cdName = $cd->name ?? null;
+                if ($cdName !== null) {
+                    $this->customDataIndexByName[$cdName] = $cdIndex;
+                }
             }
             if ($cd->isMappingIdentifier ?? false) {
                 if ($this->mappingIdentifierIndex !== self::UNDEFINED_INDEX) {
@@ -73,5 +81,10 @@ class CustomDataInfo
     public function getCustomDataIndexById(int $customDataId): ?int
     {
         return $this->customDataIndexById[$customDataId] ?? null;
+    }
+
+    public function getCustomDataIndexByName(string $customDataName): ?int
+    {
+        return $this->customDataIndexByName[$customDataName] ?? null;
     }
 }

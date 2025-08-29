@@ -2,6 +2,7 @@
 
 namespace Kameleoon\Data;
 
+/** @internal */
 class Personalization implements BaseData
 {
     private int $id;

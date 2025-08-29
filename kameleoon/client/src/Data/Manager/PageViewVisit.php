@@ -8,6 +8,7 @@ use Kameleoon\Data\BaseData;
 use Kameleoon\Data\PageView;
 use Kameleoon\Helpers\TimeHelper;
 
+/** @internal */
 class PageViewVisit implements BaseData
 {
     private PageView $pageView;

@@ -66,6 +66,7 @@ class Geolocation extends Sendable implements Data
         return $this->longitude;
     }
 
+    /** @internal */
     public function getQuery(): string
     {
         $qb = new QueryBuilder(

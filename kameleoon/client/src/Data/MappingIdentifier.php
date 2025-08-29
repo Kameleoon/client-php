@@ -5,11 +5,14 @@ namespace Kameleoon\Data;
 use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
 
+/** @internal */
 class MappingIdentifier extends CustomData
 {
     public function __construct(CustomData $customData)
     {
-        parent::__construct($customData->getId(), ...$customData->getValues());
+        parent::__construct($customData->index, ...$customData->values);
+        $this->name = $customData->name;
+        $this->overwrite = $customData->overwrite;
     }
 
     public function isSent(): bool
@@ -24,7 +27,7 @@ class MappingIdentifier extends CustomData
 
     public function __toString(): string
     {
-        $id = $this->getId();
+        $id = $this->getIndex();
         $values = json_encode($this->getValues());
         return "MappingIdentifier{id:$id,values:$values}";
     }

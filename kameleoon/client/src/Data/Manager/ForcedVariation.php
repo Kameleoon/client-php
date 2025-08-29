@@ -8,6 +8,7 @@ use Kameleoon\Configuration\Rule;
 use Kameleoon\Configuration\VariationByExposition;
 use Kameleoon\Data\BaseData;
 
+/** @internal */
 abstract class ForcedVariation implements BaseData
 {
     protected ?Rule $rule;

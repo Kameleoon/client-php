@@ -8,6 +8,7 @@ use IteratorAggregate;
 use Kameleoon\Configuration\CustomDataInfo;
 use Kameleoon\Data\BaseData;
 
+/** @internal */
 interface VisitorManager extends IteratorAggregate
 {
     /**

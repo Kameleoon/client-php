@@ -25,6 +25,7 @@ use Kameleoon\Data\VisitorVisits;
 use Kameleoon\Helpers\TimeHelper;
 use Kameleoon\Logging\KameleoonLogger;
 
+/** @internal */
 class VisitorImpl implements Visitor
 {
     private VisitorData $data;
@@ -537,8 +538,8 @@ class VisitorData
 
     public function addCustomData(CustomData $customData, bool $overwrite): void
     {
-        if ($overwrite || !array_key_exists($customData->getId(), $this->getOrCreateMapCustomData())) {
-            $this->getOrCreateMapCustomData()[$customData->getId()] = $customData;
+        if ($overwrite || !array_key_exists($customData->getIndex(), $this->getOrCreateMapCustomData())) {
+            $this->getOrCreateMapCustomData()[$customData->getIndex()] = $customData;
         }
     }
 
