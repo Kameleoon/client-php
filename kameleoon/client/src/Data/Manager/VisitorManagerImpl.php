@@ -8,6 +8,7 @@ use Traversable;
 use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Configuration\CustomDataInfo;
 use Kameleoon\Data\BaseData;
+use Kameleoon\Data\Conversion;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\MappingIdentifier;
 use Kameleoon\Managers\Data\DataManager;
@@ -59,10 +60,12 @@ class VisitorManagerImpl implements VisitorManager
         $dataToAdd = [];
         foreach ($data as $d) {
             if ($d instanceof CustomData) {
-                $d = $this->handleCustomData($cdi, $visitorCode, $visitor, $d);
+                $d = $this->processCustomData($cdi, $visitorCode, $visitor, $d);
                 if ($d !== null) {
                     $dataToAdd[] = $d;
                 }
+            } elseif ($d instanceof Conversion) {
+                $dataToAdd[] = self::processConversion($d, $cdi);
             } else {
                 $dataToAdd[] = $d;
             }
@@ -73,19 +76,16 @@ class VisitorManagerImpl implements VisitorManager
         return $visitor;
     }
 
-    private function handleCustomData(
+    private function processCustomData(
         ?CustomDataInfo $cdi, string $visitorCode, Visitor $visitor, CustomData $cd): ?CustomData
     {
-        if ($cd->getName() !== null) {
-            if ($cdi === null) {
-                return null;
-            }
-            $cdIndex = $cdi->getCustomDataIndexByName($cd->getName());
-            if ($cdIndex === null) {
-                return null;
-            }
-            $cd = $cd->namedToIndexed($cdIndex);
-        } elseif ($cdi === null) {
+        $mappedCd = self::tryMapCustomDataIndexByName($cd, $cdi);
+        if ($mappedCd === null) {
+            KameleoonLogger::error("%s is invalid and will be ignored", $cd);
+            return null;
+        }
+        $cd = $mappedCd;
+        if ($cdi === null) {
             return $cd;
         }
         // We shouldn't send custom data with local only type
@@ -105,6 +105,32 @@ class VisitorManagerImpl implements VisitorManager
             return new MappingIdentifier($cd);
         }
         return $cd;
+    }
+
+    private static function processConversion(Conversion $conv, ?CustomDataInfo $cdi): Conversion
+    {
+        if ($conv->getMetadata() !== null) {
+            foreach ($conv->getMetadata() as $i => $cd) {
+                $cd = self::tryMapCustomDataIndexByName($cd, $cdi);
+                if ($cd === null) {
+                    KameleoonLogger::warning("Conversion metadata %s is invalid", $conv->getMetadata()[$i]);
+                }
+                $conv->getMetadata()[$i] = $cd;
+            }
+        }
+        return $conv;
+    }
+
+    private static function tryMapCustomDataIndexByName(CustomData $cd, ?CustomDataInfo $cdi): ?CustomData
+    {
+        if ($cd->getIndex() !== CustomData::UNDEFINED_INDEX) {
+            return $cd;
+        }
+        if (($cd->getName() === null) || ($cdi === null)) {
+            return null;
+        }
+        $cdIndex = $cdi->getCustomDataIndexByName($cd->getName());
+        return ($cdIndex !== null) ? $cd->namedToIndexed($cdIndex) : null;
     }
 
     private static function isMappingIdentifier(CustomDataInfo $cdi, CustomData $cd): bool

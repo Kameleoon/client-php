@@ -38,6 +38,21 @@ class Conversion extends Sendable implements Data
         return $this->goalId;
     }
 
+    public function getRevenue(): float
+    {
+        return $this->revenue;
+    }
+
+    public function getNegative(): bool
+    {
+        return $this->negative;
+    }
+
+    public function &getMetadata(): ?array
+    {
+        return $this->metadata;
+    }
+
     /** @internal */
     public function getQuery(): string
     {

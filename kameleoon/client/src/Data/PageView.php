@@ -16,7 +16,7 @@ class PageView extends Sendable implements Data
     private ?string $title;
     private ?array $referrers;
 
-    public function __construct(string $url, ?string $title, ?array $referrers = null)
+    public function __construct(string $url, ?string $title = null, ?array $referrers = null)
     {
         $this->url = $url;
         $this->title = $title;

@@ -13,6 +13,9 @@ class CustomData extends Sendable implements Data
 {
     public const EVENT_TYPE = "customData";
 
+    /** @internal */
+    public const UNDEFINED_INDEX = -1;
+
     protected $index;
     protected ?string $name;
     protected array $values;
@@ -27,10 +30,10 @@ class CustomData extends Sendable implements Data
             $this->index = $indexOrName;
             $this->name = null;
         } elseif (is_string($indexOrName)) {
-            $this->index = -1;
+            $this->index = self::UNDEFINED_INDEX;
             $this->name = $indexOrName;
         } else {
-            $this->index = -1;
+            $this->index = self::UNDEFINED_INDEX;
             $this->name = null;
             KameleoonLogger::error("Cannot initialize CustomData: unexpected type of 'indexOrName' parameter");
         }
