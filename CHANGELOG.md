@@ -4,12 +4,19 @@ All notable changes to this project will be documented in this file.
 ## 4.16.1 - 2025-10-31
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Bug fixes
+* Fixed an issue where [`Conversion`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#conversion)'s metadata initialized with a name was not tracked.
+* Made parameter `title` of [`PageView`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#pageview) optional.
+
 ## 4.16.0 - 2025-08-29
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
 ### Features
 * Added an `overwrite` flag to [`CustomData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#customdata), used as the `overwrite` parameter during tracking.
 * [`CustomData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#customdata) can now be created using a `name`, in addition to the existing method of using an `index`.
+### Bug fixes
+* Renamed the `id` parameter to `index` for [`CustomData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk#customdata). The previous name `id` could be mistakenly understood as a unique `CustomData` identifier, whereas the SDK actually requires an `index`.
+
 ## 4.15.0 - 2025-07-23
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
