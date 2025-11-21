@@ -8,11 +8,11 @@ use Generator;
 use Kameleoon\Configuration\DataFile;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\Manager\AssignedVariation;
+use Kameleoon\Data\Manager\LegalConsent;
 use Kameleoon\Data\Manager\Visitor;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\ActivityEvent;
-use Kameleoon\Network\NetworkManager;
 use Kameleoon\Network\QueryParam;
 use Kameleoon\Network\QueryParams;
 
@@ -80,7 +80,7 @@ class TrackingBuilder
     private function isConsentGiven(?Visitor $visitor): bool
     {
         $isConsentGiven = !$this->dataFile->getSettings()->isConsentRequired();
-        return $isConsentGiven || (($visitor != null) && $visitor->getLegalConsent());
+        return $isConsentGiven || (($visitor != null) && ($visitor->getLegalConsent() == LegalConsent::GIVEN));
     }
 
     private function collectTrackingData(string $visitorCode, ?Visitor $visitor, bool $isConsentGiven): array

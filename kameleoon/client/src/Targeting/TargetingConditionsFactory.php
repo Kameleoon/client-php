@@ -2,6 +2,7 @@
 
 namespace Kameleoon\Targeting;
 
+use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Targeting\Condition\BrowserCondition;
 use Kameleoon\Targeting\Condition\ConversionCondition;
 use Kameleoon\Targeting\Condition\CookieCondition;
@@ -104,6 +105,7 @@ class TargetingConditionsFactory
                 return new KcsHeatRangeCondition($conditionData);
 
             default:
+                KameleoonLogger::info("Unexpected TargetingConditionType: '%s'", $conditionData->targetingType);
                 return new UnknownCondition($conditionData);
         }
     }

@@ -31,8 +31,7 @@ interface CookieManager
      * This method updates the visitor code in the cookies of the provided HTTP response
      * based on the specified legal consent. If the legal consent is granted, it adds the
      * provided visitor code to the response cookies using the `add` method. If the legal
-     * consent is denied or revoked, it removes any existing visitor code from the response
-     * cookies using the `remove` method.
+     * consent is denied or revoked, it does not remove any existing visitor code from the response cookies.
      *
      * Usage example:
      *

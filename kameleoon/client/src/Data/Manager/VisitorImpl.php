@@ -22,6 +22,7 @@ use Kameleoon\Data\TargetedSegment;
 use Kameleoon\Data\UniqueIdentifier;
 use Kameleoon\Data\UserAgent;
 use Kameleoon\Data\VisitorVisits;
+use Kameleoon\Data\Manager\LegalConsent;
 use Kameleoon\Helpers\TimeHelper;
 use Kameleoon\Logging\KameleoonLogger;
 
@@ -178,7 +179,7 @@ class VisitorImpl implements Visitor
         return $userAgent;
     }
 
-    public function getLegalConsent(): bool
+    public function getLegalConsent(): int
     {
         $legalConsent = $this->data->getLegalConsent();
         KameleoonLogger::debug("CALL/RETURN: Visitor->getLegalConsent() -> (legalConsent: %s)", $legalConsent);
@@ -193,7 +194,7 @@ class VisitorImpl implements Visitor
         $this->data->addVariation(new AssignedVariation($experimentId, $variationId, $ruleType), true);
     }
 
-    public function setLegalConsent(bool $legalConsent): void
+    public function setLegalConsent(int $legalConsent): void
     {
         $this->data->setLegalConsent($legalConsent);
     }
@@ -343,7 +344,7 @@ class VisitorData
     private ?CBScores $cbscores;
     private ?VisitorVisits $visitorVisits;
     private ?string $userAgent;
-    private bool $legalConsent;
+    private int $legalConsent;
     private ?string $mappingIdentifier;
 
     public function __construct()
@@ -467,12 +468,12 @@ class VisitorData
         return $this->userAgent ?? null;
     }
 
-    public function getLegalConsent(): bool
+    public function getLegalConsent(): int
     {
-        return $this->legalConsent ?? false;
+        return $this->legalConsent ?? LegalConsent::UNKNOWN;
     }
 
-    public function setLegalConsent(bool $legalConsent): void
+    public function setLegalConsent(int $legalConsent): void
     {
         $this->legalConsent = $legalConsent;
     }

@@ -70,8 +70,6 @@ class CookieManagerImpl implements CookieManager
     {
         if ($legalConsent) {
             $this->add($visitorCode);
-        } else {
-            $this->remove();
         }
     }
 
@@ -84,16 +82,6 @@ class CookieManagerImpl implements CookieManager
             $this->setCookie($visitorCode);
         }
         KameleoonLogger::debug("RETURN: CookieManager->add(visitorCode: '%s')", $visitorCode);
-    }
-
-    private function remove(): void
-    {
-        KameleoonLogger::debug("CALL: CookieManager->remove()");
-        if ($this->dataManager->doesVisitorCodeManagementRequireConsent()) {
-            // time() - 3600 to mark cookie as expired
-            $this->cookieProxy->setCookie(self::KAMELEOON_VISITOR_CODE, '', time() + self::REMOVE_COOKIE_SECONDS, '/');
-        }
-        KameleoonLogger::debug("RETURN: CookieManager->remove()");
     }
 
     private function processSimulatedVariations(string $visitorCode): void

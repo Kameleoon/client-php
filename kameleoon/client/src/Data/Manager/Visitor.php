@@ -209,27 +209,18 @@ interface Visitor
     public function updateSimulatedVariations(array $variations): void;
 
     /**
-     * Gets the legal consent status for the visitor. This status is related to the method
-     * `enableLegalConsent`. (See:
-     * https://developers.kameleoon.com/apis/activation-api-js/api-reference/#enablelegalconsent)
+     * Gets the legal consent status for the visitor.
      *
-     * @return bool True if legal consent is enabled for the visitor, false otherwise.
+     * @return int
      */
-    public function getLegalConsent(): bool;
+    public function getLegalConsent(): int;
 
     /**
      * Sets or removes the legal consent status of a visitor.
-     *
-     * This method allows you to update the legal consent status for a visitor by providing a boolean
-     * value. Setting the legal consent to 'true' indicates that the visitor has given their legal
-     * consent, while setting it to 'false' indicates that the visitor has withdrawn or not provided
-     * their consent.
-     *
-     * @param bool $legalConsent A boolean value representing the legal consent status of the visitor. -
-     *        'true' indicates that the visitor has given legal consent. - 'false' indicates that the
-     *        visitor has withdrawn or not provided legal consent.
+     * 
+     * @param int $legalConsent
      */
-    public function setLegalConsent(bool $legalConsent);
+    public function setLegalConsent(int $legalConsent);
 
     /**
      * Gets the mapping identifier of the visitor.

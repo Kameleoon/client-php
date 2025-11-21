@@ -11,6 +11,7 @@ use Kameleoon\Data\CustomData;
 use Kameleoon\Data\TargetedSegment;
 use Kameleoon\Data\Manager\AssignedVariation;
 use Kameleoon\Data\Manager\ForcedExperimentVariation;
+use Kameleoon\Data\Manager\LegalConsent;
 use Kameleoon\Data\Manager\Visitor;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Data\Manager\VisitorManagerImpl;
@@ -344,7 +345,11 @@ class KameleoonClientImpl implements KameleoonClient
             if (!$featureFlag->getEnvironmentEnabled()) {
                 continue;
             }
-            [$variationKey, $evalExp] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
+            try {
+                [$variationKey, $evalExp] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
+            } catch (FeatureEnvironmentDisabled $ex) {
+                continue;
+            }
             if ($onlyActive && ($variationKey == Variation::VARIATION_OFF)) {
                 continue;
             }
@@ -691,7 +696,11 @@ class KameleoonClientImpl implements KameleoonClient
             if (!$featureFlag->getEnvironmentEnabled()) {
                 continue;
             }
-            $evalExp = $this->evaluate($visitor, $visitorCode, $featureFlag, false, false);
+            try {
+                $evalExp = $this->evaluate($visitor, $visitorCode, $featureFlag, false, false);
+            } catch (FeatureEnvironmentDisabled $ex) {
+                continue;
+            }
             $variationKey = $this->calculateVariationKey($evalExp, $featureFlag->defaultVariationKey);
             if ($variationKey != Variation::VARIATION_OFF) {
                 $arrayKeys[] = $featureFlag->featureKey;
@@ -729,7 +738,11 @@ class KameleoonClientImpl implements KameleoonClient
             if (!$featureFlag->getEnvironmentEnabled()) {
                 continue;
             }
-            $evalExp = $this->evaluate($visitor, $visitorCode, $featureFlag, false, false);
+            try {
+                $evalExp = $this->evaluate($visitor, $visitorCode, $featureFlag, false, false);
+            } catch (FeatureEnvironmentDisabled $ex) {
+                continue;
+            }
             $variationKey = $this->calculateVariationKey($evalExp, $featureFlag->defaultVariationKey);
             if ($variationKey == Variation::VARIATION_OFF) {
                 continue;
@@ -862,7 +875,9 @@ class KameleoonClientImpl implements KameleoonClient
             $legalConsent
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->visitorManager->getOrCreateVisitor($visitorCode)->setLegalConsent($legalConsent);
+        $this->visitorManager->getOrCreateVisitor($visitorCode)->setLegalConsent(
+            $legalConsent ? LegalConsent::GIVEN : LegalConsent::NOT_GIVEN
+        );
         $this->cookieManager->update($visitorCode, $legalConsent);
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->setLegalConsent(visitorCode: '%s', legalConsent: %s)",
@@ -1168,6 +1183,10 @@ class KameleoonClientImpl implements KameleoonClient
         );
         // use mappingIdentifier instead of visitorCode if it was set up
         $visitor = $this->visitorManager->getVisitor($visitorCode);
+        $dataFile = $this->dataManager->getDataFile();
+        $consent = $dataFile->getSettings()->isConsentRequired()
+            ? (($visitor !== null) ? $visitor->getLegalConsent() : LegalConsent::UNKNOWN)
+            : LegalConsent::GIVEN;
         $codeForHash = self::getCodeForHash($visitor, $visitorCode, $featureFlag->bucketingCustomDataIndex);
         $evalExp = null;
         // no rules -> return defaultVariationKey
@@ -1180,45 +1199,55 @@ class KameleoonClientImpl implements KameleoonClient
                 break;
             }
             // check if visitor is targeted for rule, else next rule
-            if ($this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id, $rule->segment)) {
-                if ($forcedVariation !== null) {
-                    // Forcing experiment variation in targeting-only mode
-                    $evalExp = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
-                    break;
-                }
-                // uses for rule exposition
-                $hashRule = Hasher::obtain($codeForHash, $rule->id, $rule->respoolTime);
-                KameleoonLogger::debug("Calculated rule hash %s for code '%s'", $hashRule, $codeForHash);
-                // check main expostion for rule with hashRule
-                if ($hashRule <= $rule->exposition) {
-                    // check main exposition for rule with hashRule
-                    $evalExp = $this->evaluateCBScores(
-                        $visitor, $visitorCode, $rule, $featureFlag->bucketingCustomDataIndex
-                    );
-                    if ($evalExp !== null) {
-                        break;
-                    }
-                    if ($rule->isTargetedDelivery() && count($rule->experiment->variationsByExposition) > 0) {
-                        $evalExp = EvaluatedExperiment::fromVarByExpRule(
-                            $rule->experiment->variationsByExposition[0],
-                            $rule
+            if (!$this->targetingManager->checkTargeting($visitorCode, $rule->experiment->id, $rule->segment)) {
+                continue;
+            }
+            if ($forcedVariation !== null) {
+                // Forcing experiment variation in targeting-only mode
+                $evalExp = EvaluatedExperiment::fromVarByExpRule($forcedVariation->getVarByExp(), $rule);
+                break;
+            }
+            // uses for rule exposition
+            $hashRule = Hasher::obtain($codeForHash, $rule->id, $rule->respoolTime);
+            KameleoonLogger::debug("Calculated rule hash %s for code '%s'", $hashRule, $codeForHash);
+            // check main expostion for rule with hashRule
+            if ($hashRule <= $rule->exposition) {
+                // Checking if the evaluation is blocked due to the consent policy
+                if (($consent == LegalConsent::NOT_GIVEN) && $rule->isExperiment()) {
+                    if ($dataFile->getSettings()->isCompletelyBlockedByConsent()) {
+                        throw new FeatureEnvironmentDisabled(
+                            "Evaluation of $rule is blocked because consent is not provided for visitor '$visitorCode'"
                         );
-                        break;
                     }
-                    // uses for variation's expositions
-                    $hashVariation = Hasher::obtain($codeForHash, $rule->experiment->id, $rule->respoolTime);
-                    KameleoonLogger::debug("Calculated variation hash %s for code '%s'", $hashVariation, $codeForHash);
-                    // get variation key with new hashVariation
-                    $variation = $rule->experiment->getVariationByHash($hashVariation);
-                    // variation can be null for experiment rules only, for targeted rule will be always exist
-                    if (!is_null($variation)) {
-                        $evalExp = EvaluatedExperiment::fromVarByExpRule($variation, $rule);
-                        break;
-                    }
-                } elseif ($rule->isTargetedDelivery()) {
-                    // if visitor is targeted but not bucketed for targeted rule then break cycle -> return default
                     break;
                 }
+                // check main exposition for rule with hashRule
+                $evalExp = $this->evaluateCBScores(
+                    $visitor, $visitorCode, $rule, $featureFlag->bucketingCustomDataIndex
+                );
+                if ($evalExp !== null) {
+                    break;
+                }
+                if ($rule->isTargetedDelivery() && count($rule->experiment->variationsByExposition) > 0) {
+                    $evalExp = EvaluatedExperiment::fromVarByExpRule(
+                        $rule->experiment->variationsByExposition[0],
+                        $rule
+                    );
+                    break;
+                }
+                // uses for variation's expositions
+                $hashVariation = Hasher::obtain($codeForHash, $rule->experiment->id, $rule->respoolTime);
+                KameleoonLogger::debug("Calculated variation hash %s for code '%s'", $hashVariation, $codeForHash);
+                // get variation key with new hashVariation
+                $variation = $rule->experiment->getVariationByHash($hashVariation);
+                // variation can be null for experiment rules only, for targeted rule will be always exist
+                if (!is_null($variation)) {
+                    $evalExp = EvaluatedExperiment::fromVarByExpRule($variation, $rule);
+                    break;
+                }
+            } elseif ($rule->isTargetedDelivery()) {
+                // if visitor is targeted but not bucketed for targeted rule then break cycle -> return default
+                break;
             }
         }
         KameleoonLogger::debug(

@@ -1,6 +1,14 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.17.0 - 2025-11-21
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
+### Features
+* Updated evaluation and tracking logic to comply with GDPR requirements when consent is not given:
+    - If behavior is **partially blocked**, the default variation will be returned.
+    - If behavior is **completely blocked**, an exception will be thrown.
+
 ## 4.16.1 - 2025-10-31
 > [!WARNING]
 > The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.

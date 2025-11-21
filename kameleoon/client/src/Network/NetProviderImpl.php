@@ -44,6 +44,7 @@ class NetProviderImpl implements NetProvider
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $request->httpMethod);
         curl_setopt($ch, CURLOPT_URL, $request->url);
         curl_setopt($ch, CURLOPT_TIMEOUT_MS, $request->timeout);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
         if (!empty($request->headers)) {
             $headers = [];
             foreach ($request->headers as $headerName => $headerValue) {
@@ -97,7 +98,7 @@ class NetProviderImpl implements NetProvider
         $requestPath = $pathBase . ".sh";
         $bodyPath = $pathBase . ".dat";
         // Generate request
-        $requestText = "curl -s -S --tlsv1.2 --tls-max 1.2 -X POST";
+        $requestText = "curl -s -S -L --tlsv1.2 --tls-max 1.2 -X POST";
         if ($request->headers !== null) {
             foreach ($request->headers as $headerName => $headerValue) {
                 $requestText .= sprintf(' -H "%s: %s"', $headerName, $headerValue);
