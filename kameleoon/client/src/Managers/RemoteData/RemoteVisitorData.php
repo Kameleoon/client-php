@@ -54,7 +54,7 @@ class RemoteVisitorData
         $this->geolocation = null;
         $this->visitorCode = null;
         $this->visitNumber = 0;
-        $this->parseVisit(($json !== null) ? $json->currentVisit ?? null : null, false);
+        $this->parseVisit(($json !== null) ? $json->currentVisit ?? null : null, 0);
         $this->visitorVisits = $this->parsePreviousVisits(($json !== null) ? $json->previousVisits ?? null : null);
         $this->kcsHeat = self::parseKcsHeat(($json !== null) ? $json->kcs ?? null : null);
         $this->cbs = self::parseCBScores(($json !== null) ? $json->cbs ?? null : null);
@@ -66,18 +66,18 @@ class RemoteVisitorData
             return null;
         }
         $prevVisits = [];
-        foreach ($previousVisits as $visit) {
+        foreach ($previousVisits as $i => $visit) {
             if ($visit != null) {
                 $timeStarted = $visit->timeStarted ?? 0;
                 $timeLastEvent = $visit->timeLastEvent ?? $timeStarted;
                 $prevVisits[] = new Visit($timeStarted, $timeLastEvent);
-                $this->parseVisit($visit, true);
+                $this->parseVisit($visit, $i + 1);
             }
         }
         return empty($prevVisits) ? null : new VisitorVisits($prevVisits, $this->visitNumber);
     }
 
-    private function parseVisit($visit, bool $isPrevVisit): void
+    private function parseVisit($visit, int $visitOffset): void
     {
         if ($visit == null) {
             return;
@@ -90,7 +90,7 @@ class RemoteVisitorData
         $this->parseExperiments($visit->experimentEvents ?? null);
         $this->parseConversions($visit->conversionEvents ?? null);
         $this->parseGeolocation($visit->geolocationEvents ?? null);
-        $this->parseStaticData($visit->staticDataEvent ?? null, $isPrevVisit);
+        $this->parseStaticData($visit->staticDataEvent ?? null, $visitOffset);
         $this->parsePersonalizations($visit->personalizationEvents ?? null);
     }
 
@@ -213,7 +213,7 @@ class RemoteVisitorData
         $this->geolocation = new Geolocation($country, $region, $city);
     }
 
-    private function parseStaticData($staticDataEvent, bool $isPrevVisit): void
+    private function parseStaticData($staticDataEvent, int $visitOffset): void
     {
         if ($staticDataEvent == null) {
             return;
@@ -223,9 +223,9 @@ class RemoteVisitorData
             return;
         }
         if ($this->visitNumber == 0) {
-            $this->visitNumber = $data->visitNumber ?? 0;
-            if ($isPrevVisit && ($this->visitNumber > 0)) {
-                $this->visitNumber++;
+            $remoteVisitNumber = $data->visitNumber ?? null;
+            if ($remoteVisitNumber !== null) {
+                $this->visitNumber = $remoteVisitNumber + $visitOffset;
             }
         }
         if ($this->filter->device && ($this->device === null)) {

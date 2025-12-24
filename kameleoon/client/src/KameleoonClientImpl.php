@@ -469,7 +469,11 @@ class KameleoonClientImpl implements KameleoonClient
     }
 
     private function isVisitorNotInHoldout(
-        ?Visitor $visitor, string $visitorCode, bool $track, bool $save, ?int $bucketingCustomDataIndex
+        ?Visitor $visitor,
+        string $visitorCode,
+        bool $track,
+        bool $save,
+        ?int $bucketingCustomDataIndex
     ): bool {
         $holdout = $this->dataManager->getDataFile()->getHoldout();
         if ($holdout === null) {
@@ -478,8 +482,20 @@ class KameleoonClientImpl implements KameleoonClient
         $inHoldoutVariationKey = "in-holdout";
         KameleoonLogger::debug(
             "CALL: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s"
-                . "bucketingCustomDataIndex: %s)", $visitorCode, $track, $save, $bucketingCustomDataIndex
+                . "bucketingCustomDataIndex: %s)",
+            $visitorCode,
+            $track,
+            $save,
+            $bucketingCustomDataIndex
         );
+        $arrayConsent = $this->getConsentAndBlockingBehaviour($visitor);
+        $consent = $arrayConsent[0];
+        $completelyBlockingBehaviour = $arrayConsent[1];
+        if ($consent == LegalConsent::NOT_GIVEN && $completelyBlockingBehaviour) {
+            throw new FeatureEnvironmentDisabled(
+                "Evaluation for a holdout is blocked because visitor's consent was not provided."
+            );
+        }
         $isNotInHoldout = true;
         $codeForHash = self::getCodeForHash($visitor, $visitorCode, $bucketingCustomDataIndex);
         $variationHash = Hasher::obtain($codeForHash, $holdout->id);
@@ -495,7 +511,11 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->isVisitorNotInHoldout(visitor, visitorCode: '%s', track: %s, save: %s," .
                 " bucketingCustomDataIndex: %s) -> (isNotInHoldout: %s)",
-            $visitorCode, $track, $save, $bucketingCustomDataIndex, $isNotInHoldout
+            $visitorCode,
+            $track,
+            $save,
+            $bucketingCustomDataIndex,
+            $isNotInHoldout
         );
         return $isNotInHoldout;
     }
@@ -519,7 +539,8 @@ class KameleoonClientImpl implements KameleoonClient
             ($variation !== null) ? $variation->key : null,
             ($evalExp !== null) ? $evalExp->getVarByExp()->variationId : null,
             ($evalExp !== null) ? $evalExp->getExperiment()->id : null,
-            $extVariables
+            $extVariables,
+            ($variation !== null) ? $variation->name : ''
         );
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl::createExternalVariation(variation: %s, evalExp: %s) -> (extVariation: %s)",
@@ -972,7 +993,9 @@ class KameleoonClientImpl implements KameleoonClient
     }
 
     private static function getCodeForHash(
-        ?Visitor $visitor, string $visitorCode, ?int $bucketingCustomDataIndex
+        ?Visitor $visitor,
+        string $visitorCode,
+        ?int $bucketingCustomDataIndex
     ): string {
         if ($visitor === null) {
             return $visitorCode;
@@ -1123,14 +1146,20 @@ class KameleoonClientImpl implements KameleoonClient
     }
 
     private function evaluateCBScores(
-        ?Visitor $visitor, string $visitorCode, ?Rule $rule, ?int $bucketingCustomDataIndex
+        ?Visitor $visitor,
+        string $visitorCode,
+        ?Rule $rule,
+        ?int $bucketingCustomDataIndex
     ): ?EvaluatedExperiment {
         if (($visitor === null) || ($visitor->getCBScores() === null)) {
             return null;
         }
         KameleoonLogger::debug(
             "CALL: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s, "
-                . "bucketingCustomDataIndex: %s)", $visitorCode, $rule, $bucketingCustomDataIndex
+                . "bucketingCustomDataIndex: %s)",
+            $visitorCode,
+            $rule,
+            $bucketingCustomDataIndex
         );
         $evalExp = null;
         $varIdGroupByScores = $visitor->getCBScores()->getValues()[$rule->experiment->id] ?? null;
@@ -1167,7 +1196,10 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->evaluateCBScores(visitor, visitorCode: '%s', rule: %s, "
                 . "bucketingCustomDataIndex: %s) -> (evalExp: %s)",
-            $visitorCode, $rule, $bucketingCustomDataIndex, $evalExp
+            $visitorCode,
+            $rule,
+            $bucketingCustomDataIndex,
+            $evalExp
         );
         return $evalExp;
     }
@@ -1183,10 +1215,8 @@ class KameleoonClientImpl implements KameleoonClient
         );
         // use mappingIdentifier instead of visitorCode if it was set up
         $visitor = $this->visitorManager->getVisitor($visitorCode);
-        $dataFile = $this->dataManager->getDataFile();
-        $consent = $dataFile->getSettings()->isConsentRequired()
-            ? (($visitor !== null) ? $visitor->getLegalConsent() : LegalConsent::UNKNOWN)
-            : LegalConsent::GIVEN;
+        $arrayConsent = $this->getConsentAndBlockingBehaviour($visitor);
+        $consent = $arrayConsent[0];
         $codeForHash = self::getCodeForHash($visitor, $visitorCode, $featureFlag->bucketingCustomDataIndex);
         $evalExp = null;
         // no rules -> return defaultVariationKey
@@ -1214,7 +1244,8 @@ class KameleoonClientImpl implements KameleoonClient
             if ($hashRule <= $rule->exposition) {
                 // Checking if the evaluation is blocked due to the consent policy
                 if (($consent == LegalConsent::NOT_GIVEN) && $rule->isExperiment()) {
-                    if ($dataFile->getSettings()->isCompletelyBlockedByConsent()) {
+                    $completelyBlockingBehaviour = $arrayConsent[1];
+                    if ($completelyBlockingBehaviour) {
                         throw new FeatureEnvironmentDisabled(
                             "Evaluation of $rule is blocked because consent is not provided for visitor '$visitorCode'"
                         );
@@ -1223,7 +1254,10 @@ class KameleoonClientImpl implements KameleoonClient
                 }
                 // check main exposition for rule with hashRule
                 $evalExp = $this->evaluateCBScores(
-                    $visitor, $visitorCode, $rule, $featureFlag->bucketingCustomDataIndex
+                    $visitor,
+                    $visitorCode,
+                    $rule,
+                    $featureFlag->bucketingCustomDataIndex
                 );
                 if ($evalExp !== null) {
                     break;
@@ -1258,6 +1292,22 @@ class KameleoonClientImpl implements KameleoonClient
             $evalExp
         );
         return $evalExp;
+    }
+
+    private function getConsentAndBlockingBehaviour(?Visitor $visitor): array
+    {
+        $dataFile = $this->dataManager->getDataFile();
+        $behaviour = $dataFile->getSettings()->isCompletelyBlockedByConsent();
+
+        $consent = LegalConsent::GIVEN;
+
+        if ($dataFile->getSettings()->isConsentRequired()) {
+            $consent = $visitor !== null
+                ? $visitor->getLegalConsent()
+                : LegalConsent::UNKNOWN;
+        }
+
+        return [$consent, $behaviour];
     }
 
     private function getRemoteDataManager(): RemoteDataManager
@@ -1328,7 +1378,8 @@ class KameleoonClientImpl implements KameleoonClient
     {
         KameleoonLogger::info(
             "CALL: KameleoonClientImpl->evaluateAudiences(visitorCode: '%s', timeout: %s)",
-            $visitorCode, $timeout
+            $visitorCode,
+            $timeout
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->loadConfiguration($timeout);
@@ -1344,7 +1395,49 @@ class KameleoonClientImpl implements KameleoonClient
         $this->trackingManager->trackVisitor($visitorCode, false, $timeout);
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->evaluateAudiences(visitorCode: '%s', timeout: %s)",
-            $visitorCode, $timeout
+            $visitorCode,
+            $timeout
         );
+    }
+
+    public function getDataFile(?int $timeout = null): Types\DataFile
+    {
+        KameleoonLogger::info("CALL: KameleoonClientImpl->getDataFile()");
+        $this->loadConfiguration($timeout);
+        $featureFlags = [];
+        foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureKey => $internalFeatureFlag) {
+            // Collect variations
+            $variations = [];
+            foreach ($internalFeatureFlag->getVariations() as $variation) {
+                $variations[$variation->key] = self::createExternalVariation($variation, null);
+            }
+            // Collect rules
+            $rules = [];
+            foreach ($internalFeatureFlag->rules as $internalRule) {
+                $ruleVars = [];
+                foreach ($internalRule->experiment->variationsByExposition as $varByExp) {
+                    $variation = $variations[$varByExp->variationKey] ?? null;
+                    if ($variation !== null) {
+                        $ruleVars[$variation->key] = new Types\Variation(
+                            $variation->key,
+                            $varByExp->variationId,
+                            $internalRule->experiment->id,
+                            $variation->variables,
+                            $variation->name
+                        );
+                    }
+                }
+                $rules[] = new Types\Rule($ruleVars);
+            }
+            $featureFlags[$featureKey] = new Types\FeatureFlag(
+                $variations,
+                $internalFeatureFlag->getEnvironmentEnabled(),
+                $rules,
+                $internalFeatureFlag->defaultVariationKey
+            );
+        }
+        $dataFile = new Types\DataFile($featureFlags);
+        KameleoonLogger::info("RETURN: KameleoonClientImpl->getDataFile() -> (dataFile: %s)", $dataFile);
+        return $dataFile;
     }
 }

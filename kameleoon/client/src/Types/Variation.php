@@ -11,6 +11,11 @@ class Variation
     /**
      * @var string
      */
+    public string $name;
+
+    /**
+     * @var string
+     */
     public string $key;
 
     /**
@@ -33,13 +38,20 @@ class Variation
      * @param ?int $id
      * @param ?int $experimentId
      * @param array<string, Variable> $variables
+     * @param string $name
      */
-    public function __construct(string $key, ?int $id, ?int $experimentId, array $variables)
-    {
+    public function __construct(
+        string $key,
+        ?int $id,
+        ?int $experimentId,
+        array $variables,
+        string $name = ''
+    ) {
         $this->key = $key;
         $this->id = $id;
         $this->experimentId = $experimentId;
         $this->variables = $variables;
+        $this->name = $name;
     }
 
     /**
@@ -52,6 +64,6 @@ class Variation
 
     public function __toString(): string {
         $variables = StringHelper::objectToString($this->variables);
-        return "Variation{key:'$this->key',id:$this->id,experimentId:$this->experimentId,variables:$variables}";
+        return "Variation{name:'$this->name',key:'$this->key',id:$this->id,experimentId:$this->experimentId,variables:$variables}";
     }
 }

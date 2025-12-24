@@ -5,6 +5,7 @@ namespace Kameleoon;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Types\RemoteVisitorDataFilter;
 use Kameleoon\Types\Variation;
+use Kameleoon\Types\DataFile;
 
 interface KameleoonClient
 {
@@ -287,4 +288,14 @@ interface KameleoonClient
      * @throws Exception\VisitorCodeInvalid The provided **visitor code** is invalid.
      */
     public function evaluateAudiences(string $visitorCode, ?int $timeout = null): void;
+
+    /**
+     * Retrieves the current SDK configuration (also known as the data file),
+     * containing all feature flags and their variations.
+     *
+     * @param ?int $timeout This parameter specifies the maximum amount of time the method can block to wait for a
+     * result. Optional (defaults to `null`).
+     * @return Types\DataFile The current SDK configuration.
+     */
+    public function getDataFile(?int $timeout = null): DataFile;
 }

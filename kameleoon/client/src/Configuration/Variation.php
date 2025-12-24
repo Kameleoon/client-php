@@ -8,9 +8,11 @@ class Variation
 
     public $key;
     public $variables;
+    public $name;
 
     public function __construct($variation)
     {
+        $this->name = $variation->name ?? '';
         $this->key = $variation->key;
         $this->variables = array_reduce(
             $variation->variables,
@@ -29,6 +31,6 @@ class Variation
 
     public function __toString(): string {
         $variableCount = count($this->variables);
-        return "Variation{key:'$this->key',variables:$variableCount}";
+        return "Variation{name:'$this->name',key:'$this->key',variables:$variableCount}";
     }
 }
