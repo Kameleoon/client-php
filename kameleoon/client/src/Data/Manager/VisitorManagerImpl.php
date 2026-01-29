@@ -12,6 +12,7 @@ use Kameleoon\Data\Conversion;
 use Kameleoon\Data\CustomData;
 use Kameleoon\Data\MappingIdentifier;
 use Kameleoon\Managers\Data\DataManager;
+use Kameleoon\Network\Sendable;
 
 /** @internal */
 class VisitorManagerImpl implements VisitorManager
@@ -33,8 +34,10 @@ class VisitorManagerImpl implements VisitorManager
             $visitor = new VisitorImpl();
             $this->visitors[$visitorCode] = $visitor;
         }
-        KameleoonLogger::debug("RETURN: VisitorManager->getOrCreateVisitor(visitorCode: '%s') -> (visitor)",
-            $visitorCode);
+        KameleoonLogger::debug(
+            "RETURN: VisitorManager->getOrCreateVisitor(visitorCode: '%s') -> (visitor)",
+            $visitorCode
+        );
         return $visitor;
     }
 
@@ -51,14 +54,22 @@ class VisitorManagerImpl implements VisitorManager
         }
     }
 
-    public function addData(string $visitorCode, BaseData ...$data): Visitor
+    public function addData(string $visitorCode, bool $track, BaseData ...$data): Visitor
     {
-        KameleoonLogger::debug("CALL: VisitorManager->addData(visitorCode: '%s', data: %s)", $visitorCode, $data);
+        KameleoonLogger::debug(
+            "CALL: VisitorManager->addData(visitorCode: '%s', track: %b, data: %s)",
+            $visitorCode,
+            $track,
+            $data
+        );
         $visitor = $this->getOrCreateVisitor($visitorCode);
         $dataFile = $this->dataManager->getDataFile();
         $cdi = ($dataFile != null) ? $dataFile->getCustomDataInfo() : null;
         $dataToAdd = [];
         foreach ($data as $d) {
+            if (!$track && $d instanceof Sendable) {
+                $d->markAsSent();
+            }
             if ($d instanceof CustomData) {
                 $d = $this->processCustomData($cdi, $visitorCode, $visitor, $d);
                 if ($d !== null) {
@@ -71,14 +82,21 @@ class VisitorManagerImpl implements VisitorManager
             }
         }
         $visitor->addData(true, ...$dataToAdd);
-        KameleoonLogger::debug("RETURN: VisitorManager->addData(visitorCode: '%s', data: %s) -> (visitor)",
-            $visitorCode, $data);
+        KameleoonLogger::debug(
+            "RETURN: VisitorManager->addData(visitorCode: '%s', track: %b, data: %s) -> (visitor)",
+            $visitorCode,
+            $track,
+            $data
+        );
         return $visitor;
     }
 
     private function processCustomData(
-        ?CustomDataInfo $cdi, string $visitorCode, Visitor $visitor, CustomData $cd): ?CustomData
-    {
+        ?CustomDataInfo $cdi,
+        string $visitorCode,
+        Visitor $visitor,
+        CustomData $cd
+    ): ?CustomData {
         $mappedCd = self::tryMapCustomDataIndexByName($cd, $cdi);
         if ($mappedCd === null) {
             KameleoonLogger::error("%s is invalid and will be ignored", $cd);

@@ -52,12 +52,15 @@ class TrackingBuilder
         if ($data != null) {
             KameleoonLogger::debug(
                 "Sending tracking request for unsent data %s of visitor '%s' with given (or not required) consent %s",
-                $data, $visitorCode, $isConsentGiven,
+                $data,
+                $visitorCode,
+                $isConsentGiven,
             );
         } else {
             KameleoonLogger::debug(
                 "No data to send for visitor '%s' with given (or not required) consent %s",
-                $visitorCode, $isConsentGiven,
+                $visitorCode,
+                $isConsentGiven,
             );
         }
     }
@@ -104,7 +107,7 @@ class TrackingBuilder
             // We haven't anonymous behind, in this case we should create "fake" anonymous with id == visitorCode
             // and link it with with mapping value == visitorCode (like we do as we have real anonymous visitor)
             $mi = new CustomData($this->dataFile->getCustomDataInfo()->getMappingIdentifierIndex(), $visitorCode);
-            $visitor = $this->visitorManager->addData($visitorCode, $mi);
+            $visitor = $this->visitorManager->addData($visitorCode, true, $mi);
         }
         return $isUniqueIdentifier && ($visitorCode !== $visitor->getMappingIdentifier());
     }
@@ -133,8 +136,11 @@ class TrackingBuilder
     }
 
     private function collectTrackingLines(
-        string $visitorCode, ?Visitor $visitor, array $data, bool $useMappingValue): void
-    {
+        string $visitorCode,
+        ?Visitor $visitor,
+        array $data,
+        bool $useMappingValue
+    ): void {
         $userAgent = ($visitor != null) ? $visitor->getUserAgent() : null;
         $visitorCodeParam = (string) new QueryParam(
             $useMappingValue ? QueryParams::MAPPING_VALUE : QueryParams::VISITOR_CODE,

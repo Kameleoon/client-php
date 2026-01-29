@@ -159,19 +159,34 @@ class KameleoonClientImpl implements KameleoonClient
 
     public function addData($visitorCode, ...$data)
     {
+        $track = $this->resolveAddDataParams($data);
         KameleoonLogger::info(
-            "CALL: KameleoonClientImpl->addData(visitorCode: '%s', data: %s)",
+            "CALL: KameleoonClientImpl->addData(visitorCode: '%s', track: %b, data: %s)",
             $visitorCode,
+            $track,
             $data
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $this->loadConfiguration();
-        $this->visitorManager->addData($visitorCode, ...$data);
+        $this->visitorManager->addData($visitorCode, $track, ...$data);
         KameleoonLogger::info(
-            "RETURN: KameleoonClientImpl->addData(visitorCode: '%s', data: %s)",
+            "RETURN: KameleoonClientImpl->addData(visitorCode: '%s', track: %b, data: %s)",
             $visitorCode,
+            $track,
             $data
         );
+    }
+
+    private function resolveAddDataParams(array &$args): bool
+    {
+        $track = true;
+        if (isset($args[0]) && is_bool($args[0])) {
+            $track = $args[0];
+            unset($args[0]);
+        } else {
+            $track = true;
+        }
+        return $track;
     }
 
     public function flush(
@@ -980,10 +995,7 @@ class KameleoonClientImpl implements KameleoonClient
         );
         $ruleType = AssignedVariation::convertLiteralRuleTypeToEnum($evalExp->getRuleType());
         $asVariation = new AssignedVariation($experimentId, $variationId, $ruleType);
-        if (!$track) {
-            $asVariation->markAsSent();
-        }
-        $this->visitorManager->addData($visitorCode, $asVariation);
+        $this->visitorManager->addData($visitorCode, $track, $asVariation);
         KameleoonLogger::debug(
             "RETURN: KameleoonClientImpl->saveVariation(visitorCode: '%s', evalExp: %s, track: %s)",
             $visitorCode,
@@ -1324,7 +1336,7 @@ class KameleoonClientImpl implements KameleoonClient
         KameleoonLogger::info(
             "The 'isUniqueIdentifier' parameter is deprecated. Please, add 'UniqueIdentifier' to a visitor instead."
         );
-        $this->visitorManager->addData($visitorCode, new Data\UniqueIdentifier($isUniqueIdentifier));
+        $this->visitorManager->addData($visitorCode, true, new Data\UniqueIdentifier($isUniqueIdentifier));
     }
 
     public function setForcedVariation(
@@ -1356,7 +1368,7 @@ class KameleoonClientImpl implements KameleoonClient
                 $rule->experiment->getVariationByKey($variationKey),
                 $forceTargeting
             );
-            $this->visitorManager->addData($visitorCode, $forcedVariation);
+            $this->visitorManager->addData($visitorCode, true, $forcedVariation);
         } else {
             $visitor = $this->visitorManager->getVisitor($visitorCode);
             if ($visitor !== null) {
@@ -1390,7 +1402,7 @@ class KameleoonClientImpl implements KameleoonClient
             }
         }
         if (!empty($segments)) {
-            $this->visitorManager->addData($visitorCode, ...$segments);
+            $this->visitorManager->addData($visitorCode, true, ...$segments);
         }
         $this->trackingManager->trackVisitor($visitorCode, false, $timeout);
         KameleoonLogger::info(

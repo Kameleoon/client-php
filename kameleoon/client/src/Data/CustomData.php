@@ -65,7 +65,7 @@ class CustomData extends Sendable implements Data
      */
     public function getId()
     {
-        return $this->index;
+        return $this->getIndex();
     }
 
     public function getIndex()

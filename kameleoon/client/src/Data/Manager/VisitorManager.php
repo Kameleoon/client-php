@@ -32,9 +32,10 @@ interface VisitorManager extends IteratorAggregate
      * Adds data by a visitor code.
      *
      * @param string $visitorCode A visitor code to store the data by.
+     * @param bool $track Indicates whether data should be tracked or not.
      * @param BaseData ...$data An array of Data objects to be stored.
      *
      * @return Visitor A visitor the data was added for.
      */
-    public function addData(string $visitorCode, BaseData ...$data): Visitor;
+    public function addData(string $visitorCode, bool $track, BaseData ...$data): Visitor;
 }
