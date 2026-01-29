@@ -3,9 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## 4.19.0 - 2026-01-29
 > [!CAUTION]
-> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
-> [!CAUTION]
 > This is the final notice regarding the legacy [cron job script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job). According to our [EOL policy](https://www.kameleoon.com/eol-policy), versions earlier than **4.4.0** have been end of life for more than one year.
+
+> [!WARNING]
+> The [Cron job processing script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job) was updated. If you are upgrading from a version prior to 4.4.0, please ensure that you are using the latest version of the script.
 ### Features
 * Introduced a new `track` parameter for [`addData`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#adddata). When set to `false`, the data is stored locally and used only for targeting evaluation; it is not sent to the Data API, helping to prevent duplicate data from being recorded. The default value is `true`. This behavior is consistent with the `track` parameter used in evaluation methods such as [`getVariation`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#getvariation).
 
