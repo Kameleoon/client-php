@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Kameleoon\Data\Manager;
 
 use Generator;
+use Kameleoon\Data\ApplicationVersion;
 use Kameleoon\Data\BaseData;
 use Kameleoon\Data\Browser;
 use Kameleoon\Data\CBScores;
 use Kameleoon\Data\Conversion;
 use Kameleoon\Data\Cookie;
 use Kameleoon\Data\CustomData;
-use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\Geolocation;
 use Kameleoon\Data\KcsHeat;
@@ -22,7 +22,6 @@ use Kameleoon\Data\TargetedSegment;
 use Kameleoon\Data\UniqueIdentifier;
 use Kameleoon\Data\UserAgent;
 use Kameleoon\Data\VisitorVisits;
-use Kameleoon\Data\Manager\LegalConsent;
 use Kameleoon\Helpers\TimeHelper;
 use Kameleoon\Logging\KameleoonLogger;
 
@@ -121,6 +120,16 @@ class VisitorImpl implements Visitor
         $device = $this->data->getDevice();
         KameleoonLogger::debug("CALL/RETURN: Visitor->getDevice() -> (device: %s)", $device);
         return $device;
+    }
+
+    public function getApplicationVersion(): ?ApplicationVersion
+    {
+        $applicationVersion = $this->data->getApplicationVersion();
+        KameleoonLogger::debug(
+            "CALL/RETURN: Visitor->getApplicationVersion() -> (applicationVersion: %s)",
+            $applicationVersion
+        );
+        return $applicationVersion;
     }
 
     public function getBrowser(): ?Browser
@@ -266,6 +275,9 @@ class VisitorImpl implements Visitor
             case $data instanceof Device:
                 $this->data->setDevice($data, $overwrite);
                 break;
+            case $data instanceof ApplicationVersion:
+                $this->data->setApplicationVersion($data, $overwrite);
+                break;
             case $data instanceof Browser:
                 $this->data->setBrowser($data, $overwrite);
                 break;
@@ -336,6 +348,7 @@ class VisitorData
     private array $forcedVariations;
     private array $simulatedVariations;
     private ?Device $device;
+    private ?ApplicationVersion $applicationVersion;
     private ?Browser $browser;
     private ?Cookie $cookie;
     private ?OperatingSystem $operatingSystem;
@@ -426,6 +439,11 @@ class VisitorData
     public function getDevice(): ?Device
     {
         return $this->device ?? null;
+    }
+
+    public function getApplicationVersion(): ?ApplicationVersion
+    {
+        return $this->applicationVersion ?? null;
     }
 
     public function getBrowser(): ?Browser
@@ -580,6 +598,13 @@ class VisitorData
     {
         if ($overwrite || (($this->device ?? null) === null)) {
             $this->device = $device;
+        }
+    }
+
+    public function setApplicationVersion(ApplicationVersion $applicationVersion, bool $overwrite): void
+    {
+        if ($overwrite || (($this->applicationVersion ?? null) === null)) {
+            $this->applicationVersion = $applicationVersion;
         }
     }
 

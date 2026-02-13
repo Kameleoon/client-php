@@ -29,6 +29,7 @@ use Kameleoon\Targeting\Condition\TargetFeatureFlagCondition;
 use Kameleoon\Targeting\Condition\TargetPersonalizationCondition;
 use Kameleoon\Targeting\Condition\TimeElapsedSinceVisitCondition;
 use Kameleoon\Targeting\Condition\TargetingDataVisitNumberToday;
+use Kameleoon\Targeting\Condition\VersionCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
@@ -96,6 +97,11 @@ class TargetingManagerImpl implements TargetingManager
                 break;
             case DeviceCondition::TYPE:
                 $conditionData = !is_null($visitor) ? $visitor->getDevice() : null;
+                break;
+            case VersionCondition::TYPE:
+                $conditionData = !is_null($visitor) && $visitor->getApplicationVersion() !== null
+                    ? $visitor->getApplicationVersion()->getVersion()
+                    : null;
                 break;
             case BrowserCondition::TYPE:
                 $conditionData = !is_null($visitor) ? $visitor->getBrowser() : null;

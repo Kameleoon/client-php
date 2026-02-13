@@ -24,6 +24,7 @@ use Kameleoon\Targeting\Condition\TargetPersonalizationCondition;
 use Kameleoon\Targeting\Condition\TargetingCondition;
 use Kameleoon\Targeting\Condition\TimeElapsedSinceVisitCondition;
 use Kameleoon\Targeting\Condition\UnknownCondition;
+use Kameleoon\Targeting\Condition\VersionCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTodayCondition;
 use Kameleoon\Targeting\Condition\VisitNumberTotalCondition;
 use Kameleoon\Targeting\Condition\VisitorCodeCondition;
@@ -66,6 +67,9 @@ class TargetingConditionsFactory
 
             case DeviceCondition::TYPE:
                 return new DeviceCondition($conditionData);
+
+            case VersionCondition::TYPE:
+                return new VersionCondition($conditionData);
 
             case BrowserCondition::TYPE:
                 return new BrowserCondition($conditionData);

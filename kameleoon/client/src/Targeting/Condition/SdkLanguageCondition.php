@@ -4,23 +4,16 @@ declare(strict_types=1);
 
 namespace Kameleoon\Targeting\Condition;
 
-use Kameleoon\Helpers\SdkVersion;
-use Kameleoon\Logging\KameleoonLogger;
-
-class SdkLanguageCondition extends TargetingCondition
+class SdkLanguageCondition extends VersionCondition
 {
     const TYPE = "SDK_LANGUAGE";
 
     private $sdkLanguage;
-    private $version;
-    private $operator;
 
     public function __construct($conditionData)
     {
         parent::__construct($conditionData);
         $this->sdkLanguage = $conditionData->sdkLanguage ?? '';
-        $this->version = $conditionData->version ?? null;
-        $this->operator = $conditionData->versionMatchType ?? null;
     }
 
     public function check($data): bool
@@ -30,45 +23,8 @@ class SdkLanguageCondition extends TargetingCondition
 
     private function checkTargeting(SdkInfo $sdkInfo)
     {
-        if ($this->sdkLanguage !== $sdkInfo->getSdkLanguage()) {
-            return false;
-        }
-
-        if ($this->version === null) {
-            return true;
-        }
-
-        $versionComponentsCondition = SdkVersion::getVersionComponents($this->version);
-        $versionComponentsSdk = SdkVersion::getVersionComponents($sdkInfo->getVersion());
-
-        if ($versionComponentsCondition === null || $versionComponentsSdk === null) {
-            return false;
-        }
-
-        $majorCondition = $versionComponentsCondition[0];
-        $minorCondition = $versionComponentsCondition[1];
-        $patchCondition = $versionComponentsCondition[2];
-
-        $majorSdk = $versionComponentsSdk[0];
-        $minorSdk = $versionComponentsSdk[1];
-        $patchSdk = $versionComponentsSdk[2];
-
-        switch ($this->operator) {
-            case TargetingOperator::EQUAL:
-                return $majorSdk === $majorCondition && $minorSdk === $minorCondition && $patchSdk === $patchCondition;
-            case TargetingOperator::GREATER:
-                return $majorSdk > $majorCondition
-                    || ($majorSdk === $majorCondition && $minorSdk > $minorCondition)
-                    || ($majorSdk === $majorCondition && $minorSdk === $minorCondition && $patchSdk > $patchCondition);
-            case TargetingOperator::LOWER:
-                return $majorSdk < $majorCondition
-                    || ($majorSdk === $majorCondition && $minorSdk < $minorCondition)
-                    || ($majorSdk === $majorCondition && $minorSdk === $minorCondition && $patchSdk < $patchCondition);
-            default:
-                KameleoonLogger::error("Unexpected comparing operation for 'SdkLanguage' condition: '%s'",
-                    $this->operator);
-                return false;
-        }
+        return $this->sdkLanguage === $sdkInfo->getSdkLanguage()
+            && ($this->conditionVersion === null || $this->compareWithVersion($sdkInfo->getVersion()));
     }
 }
 

@@ -6,8 +6,8 @@ namespace Kameleoon\Data\Manager;
 
 use Generator;
 use Kameleoon\Data\BaseData;
+use Kameleoon\Data\ApplicationVersion;
 use Kameleoon\Data\CBScores;
-use Kameleoon\Data\Data;
 use Kameleoon\Data\Device;
 use Kameleoon\Data\Browser;
 use Kameleoon\Data\Cookie;
@@ -87,6 +87,13 @@ interface Visitor
      * @return Device|null A Device object if device information is available, otherwise null.
      */
     public function getDevice(): ?Device;
+
+    /**
+     * Retrieves information about the application version used by the visitor, if available.
+     *
+     * @return ApplicationVersion|null An ApplicationVersion object if information is available, otherwise null.
+     */
+    public function getApplicationVersion(): ?ApplicationVersion;
 
     /**
      * Retrieves information about the browser used by the visitor, if available.

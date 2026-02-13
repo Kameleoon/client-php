@@ -2,7 +2,7 @@
 
 namespace Kameleoon\Helpers;
 
-define("VERSION_SDK", "4.19.0");
+define("VERSION_SDK", "4.20.0");
 
 class SdkVersion
 {
@@ -32,31 +32,5 @@ class SdkVersion
         // if (empty(self::$version)) {
         //     echo 'Kameleoon SDK: Version of SDK is not defined';
         // }
-    }
-
-    public static function getVersionComponents(string $versionString): ?array
-    {
-        $versions = [0, 0, 0];
-
-        $versionParts = explode('.', $versionString);
-        for ($i = 0; $i < count($versions) && $i < count($versionParts); $i++) {
-            if (ctype_digit($versionParts[$i])) {
-                $versions[$i] = (int)$versionParts[$i];
-            } else {
-                return null;
-            }
-        }
-        return $versions;
-    }
-
-    public static function getFloatVersion($versionString)
-    {
-        $versionComponents = self::getVersionComponents($versionString);
-        if ($versionComponents === null) {
-            return NAN;
-        }
-        $major = $versionComponents[0];
-        $minor = $versionComponents[1];
-        return (float)("$major.$minor");
     }
 }

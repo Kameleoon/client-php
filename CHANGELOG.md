@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.20.0 - 2026-02-13
+### Features
+* Introduced support for the Kameleoon [`ApplicationVersion`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#applicationversion) data type, allowing the visitor’s application version to be set and used in targeting evaluation.
+
 ## 4.19.0 - 2026-01-29
 > [!CAUTION]
 > This is the final notice regarding the legacy [cron job script](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#installing-the-cron-job). According to our [EOL policy](https://www.kameleoon.com/eol-policy), versions earlier than **4.4.0** have been end of life for more than one year.

@@ -6,6 +6,7 @@ namespace Kameleoon\Targeting\Condition;
 
 use Kameleoon\Data\Browser;
 use Kameleoon\Helpers\SdkVersion;
+use Kameleoon\Helpers\SemVersion;
 use Kameleoon\Logging\KameleoonLogger;
 
 class BrowserCondition extends TargetingCondition
@@ -45,10 +46,11 @@ class BrowserCondition extends TargetingCondition
             return true;
         }
 
-        $versionNumber = SdkVersion::getFloatVersion($this->version);
-        if (is_nan($versionNumber)) {
+        $semVersion = SemVersion::fromString($this->version);
+        if ($semVersion === null) {
             return false;
         }
+        $versionNumber = $semVersion->toFloat();
 
         switch ($this->operator) {
             case TargetingOperator::EQUAL:
