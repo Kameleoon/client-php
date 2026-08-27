@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
+use Kameleoon\Events\EventManager;
+use Kameleoon\Events\HttpRequestFailure;
+use Kameleoon\Events\RequestType;
 use Kameleoon\Helpers\SdkVersion;
 use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\AccessToken\AccessTokenSource;
@@ -28,18 +31,21 @@ class NetworkManagerImpl implements NetworkManager
     private int $defaultTimeout;
     private NetProvider $netProvider;
     private AccessTokenSource $accessTokenSource;
+    private EventManager $eventManager;
 
     public function __construct(
         UrlProvider $urlProvider,
         ?string $environment,
         int $defaultTimeout,
         NetProvider $netProvider,
-        AccessTokenSourceFactory $accessTokenSourceFactory
+        AccessTokenSourceFactory $accessTokenSourceFactory,
+        EventManager $eventManager
     ) {
         $this->urlProvider = $urlProvider;
         $this->environment = $environment;
         $this->defaultTimeout = $defaultTimeout;
         $this->netProvider = $netProvider;
+        $this->eventManager = $eventManager;
         $this->accessTokenSource = $accessTokenSourceFactory->create($this);
     }
 
@@ -68,17 +74,22 @@ class NetworkManagerImpl implements NetworkManager
         return $this->accessTokenSource;
     }
 
+    public function getEventManager(): EventManager
+    {
+        return $this->eventManager;
+    }
+
     private function getTimeout(?int $timeout): int
     {
         return ($timeout === null) ? $this->defaultTimeout : $timeout;
     }
 
-    protected function makeSyncCall(SyncRequest $request, bool $readHeaders = false): ?Response
+    protected function makeSyncCall(string $requestType, SyncRequest $request, bool $readHeaders = false): ?Response
     {
         KameleoonLogger::debug("Running request %s", $request);
         $request->timeout = $this->getTimeout($request->timeout);
         $accessToken = $this->applyAccessToken($request, $request->timeout);
-        $response = $this->netProvider->callSync($request, $readHeaders);
+        $response = $this->callSyncWithEvents($requestType, $request, $readHeaders);
         if ($response->error !== null) {
             KameleoonLogger::error(
                 "%s call '%s' failed: Error occurred during request: %s",
@@ -96,7 +107,7 @@ class NetworkManagerImpl implements NetworkManager
             );
             if (($response->code == 401) && ($accessToken !== null)) {
                 $request->isJwtRequired = false;
-                $this->netProvider->callSync($request, $readHeaders);
+                $this->callSyncWithEvents($requestType, $request, $readHeaders);
                 $this->accessTokenSource->discardToken($accessToken);
             }
         } else {
@@ -105,6 +116,29 @@ class NetworkManagerImpl implements NetworkManager
         }
         KameleoonLogger::debug("Fetched response null for request %s", $request);
         return null;
+    }
+
+    // Performs a single HTTP request attempt and fires the corresponding HTTP request event.
+    private function callSyncWithEvents(string $requestType, SyncRequest $request, bool $readHeaders): Response
+    {
+        $startTime = hrtime(true);
+        $response = $this->netProvider->callSync($request, $readHeaders);
+        $durationMillis = intdiv(hrtime(true) - $startTime, 1_000_000);
+        if ($response->error !== null) {
+            $failure = $response->isTimeout()
+                ? HttpRequestFailure::cancelled()
+                : HttpRequestFailure::exception($response->error);
+            $this->eventManager->fireHttpRequestFailed($requestType, $failure, $durationMillis);
+        } elseif (!$response->isExpectedStatusCode()) {
+            $this->eventManager->fireHttpRequestFailed(
+                $requestType,
+                HttpRequestFailure::httpStatus($response->code),
+                $durationMillis
+            );
+        } else {
+            $this->eventManager->fireHttpRequestSucceeded($requestType, $response->code, $durationMillis);
+        }
+        return $response;
     }
 
     protected function makeAsyncCall(AsyncRequest $request): void
@@ -136,7 +170,7 @@ class NetworkManagerImpl implements NetworkManager
             $headers[self::H_IF_MODIFIED_SINCE] = $ifModifiedSince;
         }
         $request = new SyncRequest(Request::GET, $url, $headers, $timeout, ResponseContentType::TEXT);
-        $response = $this->makeSyncCall($request, true);
+        $response = $this->makeSyncCall(RequestType::DATAFILE, $request, true);
         if ($response === null) {
             return null;
         }
@@ -151,7 +185,7 @@ class NetworkManagerImpl implements NetworkManager
     {
         $url = $this->urlProvider->makeApiDataGetRequestUrl($key);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
-        $response = $this->makeSyncCall($request);
+        $response = $this->makeSyncCall(RequestType::REMOTE_DATA, $request);
         return ($response !== null) ? $response->body : null;
     }
 
@@ -163,7 +197,7 @@ class NetworkManagerImpl implements NetworkManager
     ) {
         $url = $this->urlProvider->makeVisitorDataGetUrl($visitorCode, $filter, $isUniqueIdentifier);
         $request = new SyncRequest(Request::GET, $url, null, $timeout, ResponseContentType::JSON, true);
-        $response = $this->makeSyncCall($request);
+        $response = $this->makeSyncCall(RequestType::REMOTE_VISITOR_DATA, $request);
         return ($response !== null) ? $response->body : null;
     }
 
@@ -200,7 +234,7 @@ class NetworkManagerImpl implements NetworkManager
             true,
             $lines,
         );
-        $response = $this->makeSyncCall($request);
+        $response = $this->makeSyncCall(RequestType::TRACKING, $request);
         return $response !== null;
     }
 
@@ -217,7 +251,7 @@ class NetworkManagerImpl implements NetworkManager
             false,
             $data
         );
-        $response = $this->makeSyncCall($request);
+        $response = $this->makeSyncCall(RequestType::ACCESS_TOKEN, $request);
         return ($response !== null) ? $response->body : null;
     }
 

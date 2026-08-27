@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
-use Exception;
 use Kameleoon\Logging\KameleoonLogger;
 use Kameleoon\Network\NetProvider;
 use Kameleoon\Network\Response;
 use Kameleoon\Network\ResponseContentType;
+use Throwable;
 
 class NetProviderImpl implements NetProvider
 {
@@ -82,17 +82,17 @@ class NetProviderImpl implements NetProvider
             );
         }
         $body = curl_exec($ch);
-        $err = curl_error($ch);
-        if (empty($err)) {
+        $errno = curl_errno($ch);
+        if ($errno !== CURLE_OK) {
+            $response = new Response(curl_error($ch), null, null, $responseHeaders, $errno);
+        } else {
             $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             try {
                 $content = self::getContent($body, $request->responseContentType);
                 $response = new Response(null, $code, $content, $responseHeaders);
-            } catch (Exception $ex) {
+            } catch (Throwable $ex) {
                 $response = new Response($ex, $code, null, $responseHeaders);
             }
-        } else {
-            $response = new Response($err, null, null, []);
         }
         if (PHP_VERSION_ID < 80000) {
             curl_close($ch);
@@ -122,7 +122,7 @@ class NetProviderImpl implements NetProvider
         // Write to files
         if (!file_exists($requestPath) && (file_put_contents($requestPath, $requestText, LOCK_EX) === false)) {
             $failureFile = $requestPath;
-        } else if ($hasBody && (file_put_contents($bodyPath, $request->body, FILE_APPEND | LOCK_EX) === false)) {
+        } elseif ($hasBody && (file_put_contents($bodyPath, $request->body, FILE_APPEND | LOCK_EX) === false)) {
             $failureFile = $bodyPath;
         }
         if ($failureFile !== null) {

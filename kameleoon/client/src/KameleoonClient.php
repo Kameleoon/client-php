@@ -3,12 +3,50 @@
 namespace Kameleoon;
 
 use Kameleoon\Data\CustomData;
+use Kameleoon\Events\EventHandler;
+use Kameleoon\Events\EventType;
 use Kameleoon\Types\RemoteVisitorDataFilter;
 use Kameleoon\Types\Variation;
 use Kameleoon\Types\DataFile;
 
 interface KameleoonClient
 {
+    /**
+     * Ensures the SDK is ready for use: its configuration is downloaded, valid and up to date.
+     *
+     * The method returns immediately if the configuration has already been downloaded and is not
+     * outdated. Otherwise, it synchronously downloads the configuration, blocking until the download
+     * completes, fails, or the specified timeout expires. Calling this method before using the SDK
+     * is not required, as every other SDK method loads the configuration in the same way, but it
+     * allows initialization errors to be handled in a single place.
+     *
+     * @param ?int $timeout This parameter specifies the maximum amount of time the method can block
+     * to wait for a result. This field is optional.
+     *
+     * The method throws only if the SDK could not be initialized at all: the configuration could
+     * not be downloaded and no valid local copy is available. If a local configuration exists but
+     * the update request fails, the method returns successfully and the SDK keeps using the
+     * existing configuration.
+     *
+     * @throws Exception\Initialization The SDK has no configuration: it could not be downloaded
+     * and no valid local copy is available. The failure which prevented the SDK from loading its
+     * configuration is available via `getPrevious()`.
+     */
+    public function waitInit(?int $timeout = null): void;
+
+    /**
+     * Indicates whether the SDK is ready for use, i.e. its configuration has been successfully
+     * downloaded and a valid local copy is available. Unlike {@see KameleoonClient::waitInit()},
+     * this method returns immediately without making network requests or throwing.
+     *
+     * Readiness is monotonic: once the configuration has been downloaded, the method keeps
+     * returning `true`, even if the configuration has become outdated. An outdated configuration
+     * is refreshed by the next call of any SDK method (including `waitInit`).
+     *
+     * @return bool `true` if the SDK is ready for use, otherwise `false`.
+     */
+    public function isReady(): bool;
+
     public function getVisitorCode(?string $defaultVisitorCode = null, ?int $timeout = null);
 
     public function addData($visitorCode, ...$data);
@@ -301,4 +339,15 @@ interface KameleoonClient
      * @return Types\DataFile The current SDK configuration.
      */
     public function getDataFile(?int $timeout = null): DataFile;
+
+    /**
+     * Sets the SDK event handler for the specified event type.
+     *
+     * The handler is called when the corresponding SDK event occurs. Supported event types are
+     * defined in {@see EventType}. Passing `null` clears the handler for the specified event type.
+     *
+     * @param string $eventType The SDK event type to handle, one of the {@see EventType} constants.
+     * @param ?EventHandler $handler The handler to register, or `null` to remove the current handler.
+     */
+    public function setEventHandler(string $eventType, ?EventHandler $handler): void;
 }

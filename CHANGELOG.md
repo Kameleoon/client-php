@@ -1,6 +1,17 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## 4.24.0 - 2026-08-27
+### Features
+* Added new [`setEventHandler`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#seteventhandler) method for subscribing to SDK events:
+  - `EventType::DATAFILE_UPDATE` notifies when the SDK data file (configuration) is updated; handled with `DataFileUpdateHandler`.
+  - `EventType::HTTP_REQUEST` notifies when SDK HTTP requests complete successfully or fail; handled with `HttpRequestHandler`. The handler is called once per each actual HTTP request attempt, including retries.
+  - HTTP request events include the request type, HTTP status or failure details, and request duration.
+  - Passing `null` to `setEventHandler` clears the handler for the selected event type.
+* Added the new [`waitInit`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#waitinit) method, which ensures the SDK is ready for use. It returns immediately if the configuration has already been downloaded and is not outdated; otherwise, it synchronously downloads the configuration (as any other SDK method would), blocking until the download completes, fails, or the specified timeout expires. The method throws an `Initialization` exception (with the failure available via `getPrevious()`) only if the SDK has no configuration at all: the configuration could not be downloaded and no valid local copy is available. If a local configuration exists but the update request fails, the method returns successfully and the SDK keeps using the existing configuration.
+* Added the new [`isReady`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#isready) method, which returns `true` once the SDK configuration has been successfully downloaded and a valid local copy is available (even if it has become outdated), and `false` otherwise. Unlike [`waitInit`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#waitinit), it returns immediately without making network requests or throwing.
+* Targeting conditions of an unknown (unsupported) type are now evaluated as `false` instead of `true`, so visitors are no longer targeted by conditions the SDK cannot evaluate.
+
 ## 4.23.0 - 2026-05-20
 ### Features
 * Added new [`requestBodySizeLimitBytes`](https://developers.kameleoon.com/feature-management-and-experimentation/web-sdks/php-sdk/#additional-configuration) (`request_body_size_limit_bytes`) configuration parameter to control the request body file size limit.

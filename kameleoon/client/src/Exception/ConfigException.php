@@ -2,13 +2,13 @@
 
 namespace Kameleoon\Exception;
 
-use Exception;
 use Kameleoon\Exception\KameleoonException;
+use Throwable;
 
 class ConfigException extends KameleoonException
 {
-    public function __construct($message, $code = 0, ?Exception $previous = null)
+    public function __construct($message, ?Throwable $previous = null)
     {
-        parent::__construct("Config Invalid: " . $message, $code, $previous);
+        parent::__construct("Config Invalid: " . $message, $previous);
     }
 }

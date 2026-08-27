@@ -27,19 +27,26 @@ class Response
     public ?int $code;
     public $body;
     public array $headers;
+    public ?int $errorCode;
 
-    public function __construct($error, ?int $code, $body, ?array $headers = null)
+    public function __construct($error, ?int $code, $body, ?array $headers = null, ?int $errorCode = null)
     {
         $this->error = $error;
         $this->code = $code;
         $this->body = $body;
         $this->headers = $headers ?? [];
+        $this->errorCode = $errorCode;
     }
 
     public function isExpectedStatusCode(): bool
     {
         return ($this->code !== null)
             && ((intdiv($this->code, 100) === 2) || ($this->code === 403) || ($this->code === 304));
+    }
+
+    public function isTimeout(): bool
+    {
+        return $this->errorCode === CURLE_OPERATION_TIMEOUTED;
     }
 
     public function __toString(): string

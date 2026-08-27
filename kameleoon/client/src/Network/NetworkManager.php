@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
+use Kameleoon\Events\EventManager;
 use Kameleoon\Network\AccessToken\AccessTokenSource;
 use Kameleoon\Types\RemoteVisitorDataFilter;
 
@@ -14,6 +15,7 @@ interface NetworkManager
     public function getDefaultTimeout(): int;
     public function getNetProvider(): NetProvider;
     public function getAccessTokenSource(): AccessTokenSource;
+    public function getEventManager(): EventManager;
 
     // Automation API
     public function fetchAccessJWToken(string $basicAuthToken, ?int $timeout = null): ?object;

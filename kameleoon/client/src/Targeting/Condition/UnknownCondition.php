@@ -12,7 +12,7 @@ class UnknownCondition extends TargetingCondition
 
     public function check($data): bool
     {
-        KameleoonLogger::warning("Condition of unknown type '%s' evaluated as true", $this->getType());
-        return true;
+        KameleoonLogger::warning("Condition of unknown type '%s' evaluated as false", $this->getType());
+        return false;
     }
 }

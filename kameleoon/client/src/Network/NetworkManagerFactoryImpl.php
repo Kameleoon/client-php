@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kameleoon\Network;
 
+use Kameleoon\Events\EventManager;
 use Kameleoon\Network\AccessToken\AccessTokenSourceFactory;
 
 class NetworkManagerFactoryImpl implements NetworkManagerFactory
@@ -22,7 +23,8 @@ class NetworkManagerFactoryImpl implements NetworkManagerFactory
         int $defaultTimeout,
         string $kameleoonWorkDir,
         AccessTokenSourceFactory $accessTokenSourceFactory,
-        ?string $networkDomain
+        ?string $networkDomain,
+        EventManager $eventManager
     ): NetworkManager {
         $urlProvider = new UrlProvider($siteCode, $networkDomain);
         $netProvider = new NetProviderImpl($siteCode, $kameleoonWorkDir, $this->asyncRequestBodySizeLimit);
@@ -31,7 +33,8 @@ class NetworkManagerFactoryImpl implements NetworkManagerFactory
             $environment,
             $defaultTimeout,
             $netProvider,
-            $accessTokenSourceFactory
+            $accessTokenSourceFactory,
+            $eventManager
         );
     }
 }

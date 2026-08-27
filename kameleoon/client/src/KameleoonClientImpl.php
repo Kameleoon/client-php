@@ -15,11 +15,15 @@ use Kameleoon\Data\Manager\LegalConsent;
 use Kameleoon\Data\Manager\Visitor;
 use Kameleoon\Data\Manager\VisitorManager;
 use Kameleoon\Data\Manager\VisitorManagerImpl;
+use Kameleoon\Events\DataFileUpdateEvent;
+use Kameleoon\Events\EventHandler;
+use Kameleoon\Events\EventManager;
 use Kameleoon\Exception\DataFileInvalid;
 use Kameleoon\Exception\FeatureEnvironmentDisabled;
 use Kameleoon\Exception\FeatureExperimentNotFound;
 use Kameleoon\Exception\FeatureVariableNotFound;
 use Kameleoon\Exception\FeatureVariationNotFound;
+use Kameleoon\Exception\Initialization;
 use Kameleoon\Exception\KameleoonException;
 use Kameleoon\Exception\SiteCodeIsEmpty;
 use Kameleoon\Helpers\Hasher;
@@ -45,12 +49,14 @@ use Kameleoon\Network\NetworkManagerFactoryImpl;
 use Kameleoon\Targeting\TargetingManager;
 use Kameleoon\Targeting\TargetingManagerImpl;
 use Kameleoon\Types\RemoteVisitorDataFilter;
+use Throwable;
 
 class KameleoonClientImpl implements KameleoonClient
 {
     const FILE_CONFIGURATION_NAME = "kameleoon-configuration-";
     const VISITOR_CODE_MAX_LENGTH = 255;
 
+    private string $siteCode;
     private DataManager $dataManager;
     private KameleoonClientConfig $clientConfig;
     private string $configurationFilePath;
@@ -64,6 +70,7 @@ class KameleoonClientImpl implements KameleoonClient
     private TargetingManager $targetingManager;
     private RemoteDataManager $remoteDataManager;
     private TrackingManager $trackingManager;
+    private EventManager $eventManager;
 
     public function __construct(
         string $siteCode,
@@ -79,6 +86,7 @@ class KameleoonClientImpl implements KameleoonClient
             throw new SiteCodeIsEmpty("Provided siteCode is empty");
         }
 
+        $this->siteCode = $siteCode;
         $this->dataManager = new DataManagerImpl();
         $this->visitorManager = new VisitorManagerImpl($this->dataManager);
         $this->cookieManager = new CookieManagerImpl(
@@ -102,6 +110,7 @@ class KameleoonClientImpl implements KameleoonClient
             );
         }
 
+        $this->eventManager = new EventManager();
         $networkManagerFactory = $networkManagerFactory ?? new NetworkManagerFactoryImpl(
             $this->clientConfig->getRequestBodySizeLimitBytes()
         );
@@ -115,7 +124,8 @@ class KameleoonClientImpl implements KameleoonClient
                 $this->clientConfig->getClientSecret(),
                 $kameleoonWorkDir
             ),
-            $this->clientConfig->getNetworkDomain()
+            $this->clientConfig->getNetworkDomain(),
+            $this->eventManager
         );
         $this->trackingManager = new TrackingManagerImpl(
             $this->dataManager,
@@ -135,6 +145,82 @@ class KameleoonClientImpl implements KameleoonClient
      * API Methods (Public Methods)
      */
 
+    public function waitInit(?int $timeout = null): void
+    {
+        KameleoonLogger::info("CALL: KameleoonClientImpl->waitInit(timeout: %s)", $timeout);
+        if (!$this->isDataFileUpToDate()) {
+            try {
+                $this->loadDataFile($timeout);
+            } catch (Throwable $e) {
+                if ($this->dataManager->getDataFile() === null) {
+                    KameleoonLogger::error(
+                        "Kameleoon failed to initialize for siteCode: '%s', environment: '%s' due to exception: %s",
+                        $this->siteCode,
+                        $this->clientConfig->getEnvironment(),
+                        $e
+                    );
+                    throw new Initialization(
+                        sprintf(
+                            "SDK could not be initialized for siteCode: '%s', environment: '%s'. Reason: %s",
+                            $this->siteCode,
+                            $this->clientConfig->getEnvironment(),
+                            $e->getMessage()
+                        ),
+                        $e
+                    );
+                }
+                KameleoonLogger::warning(
+                    "Kameleoon configuration update failed, the SDK keeps using the existing configuration: %s",
+                    $e
+                );
+            }
+        }
+        KameleoonLogger::info("RETURN: KameleoonClientImpl->waitInit(timeout: %s)", $timeout);
+    }
+
+    public function isReady(): bool
+    {
+        KameleoonLogger::info("CALL: KameleoonClientImpl->isReady()");
+        $ready = $this->isDataFileAvailable();
+        KameleoonLogger::info("RETURN: KameleoonClientImpl->isReady() -> (ready: %s)", $ready);
+        return $ready;
+    }
+
+    /**
+     * Indicates whether the SDK holds a configuration which can be used: loaded into memory or
+     * available as a valid local copy, regardless of its age. This is the PHP counterpart of the
+     * in-memory configuration of the SDKs with a runtime, so the readiness is monotonic: once the
+     * configuration has been successfully downloaded, it stays available. Unlike `loadDataFile`,
+     * the method never makes network requests or throws.
+     */
+    private function isDataFileAvailable(): bool
+    {
+        if ($this->dataManager->getDataFile() !== null) {
+            return true;
+        }
+        if (!file_exists($this->configurationFilePath)) {
+            return false;
+        }
+        // The local configuration file exists, but has not been loaded within this request yet.
+        // The SDK is ready if the file contains a valid configuration.
+        try {
+            $this->loadDataFileLocal();
+            return true;
+        } catch (DataFileInvalid $e) {
+            KameleoonLogger::debug("SDK is not ready: local data file is invalid: %s", $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Indicates whether the SDK holds a configuration which is both available and not outdated,
+     * so `waitInit` has nothing to do.
+     */
+    private function isDataFileUpToDate(): bool
+    {
+        return !$this->shouldDataFileBeUpdated() && $this->isDataFileAvailable();
+    }
+
     public function getVisitorCode(?string $defaultVisitorCode = null, ?int $timeout = null): string
     {
         KameleoonLogger::info(
@@ -146,7 +232,7 @@ class KameleoonClientImpl implements KameleoonClient
             if ($defaultVisitorCode !== null) {
                 VisitorCodeManager::validateVisitorCode($defaultVisitorCode);
             }
-            $this->loadConfiguration($timeout);
+            $this->loadDataFile($timeout);
             $this->visitorCode = $this->cookieManager->getOrAdd($defaultVisitorCode);
         }
         KameleoonLogger::info(
@@ -168,7 +254,7 @@ class KameleoonClientImpl implements KameleoonClient
             $data
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration();
+        $this->loadDataFile();
         $this->visitorManager->addData($visitorCode, $track, ...$data);
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->addData(visitorCode: '%s', track: %b, data: %s)",
@@ -203,7 +289,7 @@ class KameleoonClientImpl implements KameleoonClient
             $isUniqueIdentifier,
             $instant
         );
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         if ($visitorCode !== null) {
             VisitorCodeManager::validateVisitorCode($visitorCode);
             if ($isUniqueIdentifier !== null) {
@@ -243,7 +329,7 @@ class KameleoonClientImpl implements KameleoonClient
             $metadata,
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         if ($isUniqueIdentifier !== null) {
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
@@ -282,7 +368,7 @@ class KameleoonClientImpl implements KameleoonClient
         if ($isUniqueIdentifier !== null) {
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         try {
             $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
             [$variationKey,] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
@@ -321,7 +407,7 @@ class KameleoonClientImpl implements KameleoonClient
             $timeout,
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
         [$variationKey, $evalExp] = $this->getVariationInfo($visitorCode, $featureFlag, $track);
         $variation = $featureFlag->getVariation($variationKey);
@@ -355,7 +441,7 @@ class KameleoonClientImpl implements KameleoonClient
             $timeout,
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $variations = array();
         foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
             try {
@@ -673,7 +759,7 @@ class KameleoonClientImpl implements KameleoonClient
             $variationKey,
             $timeout,
         );
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
         $this->dataManager->getDataFile()->ensureEnvironmentEnabled($featureFlag);
         $variation = $featureFlag->getVariation($variationKey);
@@ -701,7 +787,7 @@ class KameleoonClientImpl implements KameleoonClient
             "Call of deprecated method 'getFeatureList'. Please, use 'getDataFile' instead."
         );
         KameleoonLogger::info("CALL: KameleoonClientImpl->getFeatureList(timeout: %s)", $timeout);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $features = array_keys($this->dataManager->getDataFile()->getFeatureFlags());
         KameleoonLogger::info(
             "RETURN: KameleoonClientImpl->getFeatureList(timeout: %s) -> (features: %s)",
@@ -726,7 +812,7 @@ class KameleoonClientImpl implements KameleoonClient
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $arrayKeys = array();
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
             try {
@@ -765,7 +851,7 @@ class KameleoonClientImpl implements KameleoonClient
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $mapActiveFeatures = array();
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $visitor = $this->visitorManager->getVisitor($visitorCode);
         foreach ($this->dataManager->getDataFile()->getFeatureFlags() as $featureFlag) {
             try {
@@ -840,7 +926,7 @@ class KameleoonClientImpl implements KameleoonClient
             $filter,
             $isUniqueIdentifier,
         );
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         if ($isUniqueIdentifier !== null) {
             $this->setUniqueIdentifier($visitorCode, $isUniqueIdentifier);
         }
@@ -897,6 +983,13 @@ class KameleoonClientImpl implements KameleoonClient
         return $customData;
     }
 
+    public function setEventHandler(string $eventType, ?EventHandler $handler): void
+    {
+        KameleoonLogger::info("CALL: KameleoonClientImpl->setEventHandler(eventType: '%s', handler)", $eventType);
+        $this->eventManager->setEventHandler($eventType, $handler);
+        KameleoonLogger::info("RETURN: KameleoonClientImpl->setEventHandler(eventType: '%s', handler)", $eventType);
+    }
+
     public function setLegalConsent(string $visitorCode, bool $legalConsent): void
     {
         KameleoonLogger::info(
@@ -932,7 +1025,7 @@ class KameleoonClientImpl implements KameleoonClient
             $featureKey,
             $timeout,
         );
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         VisitorCodeManager::validateVisitorCode($visitorCode);
         $featureFlag = $this->dataManager->getDataFile()->getFeatureFlag($featureKey);
         $visitor = $this->visitorManager->getVisitor($visitorCode);
@@ -1030,9 +1123,9 @@ class KameleoonClientImpl implements KameleoonClient
     }
 
     //load configuration if it was not loaded
-    private function loadConfiguration(?int $timeout = null)
+    private function loadDataFile(?int $timeout = null)
     {
-        KameleoonLogger::debug("CALL: KameleoonClientImpl->loadConfiguration(timeout: %s)", $timeout);
+        KameleoonLogger::debug("CALL: KameleoonClientImpl->loadDataFile(timeout: %s)", $timeout);
         $dataFileShouldBeUpdated = $this->shouldDataFileBeUpdated();
         $dataFile = $this->dataManager->getDataFile();
         $dataFileEmpty = !file_exists($this->configurationFilePath);
@@ -1040,7 +1133,7 @@ class KameleoonClientImpl implements KameleoonClient
             try {
                 $this->loadDataFileLocal();
             } catch (DataFileInvalid $e) {
-                $this->updateConfigurationExclusively($this->getTimeout($timeout), true);
+                $this->updateDataFileExclusively($this->getTimeout($timeout), true);
                 $dataFileShouldBeUpdated = false;
             }
         }
@@ -1051,9 +1144,9 @@ class KameleoonClientImpl implements KameleoonClient
                     fclose($fp);
                 }
             }
-            $this->updateConfigurationExclusively($this->getTimeout($timeout), $dataFileEmpty);
+            $this->updateDataFileExclusively($this->getTimeout($timeout), $dataFileEmpty);
         }
-        KameleoonLogger::debug("RETURN: KameleoonClientImpl->loadConfiguration(timeout: %s)", $timeout);
+        KameleoonLogger::debug("RETURN: KameleoonClientImpl->loadDataFile(timeout: %s)", $timeout);
     }
 
     private function applyNewConfiguration($dataFileJson)
@@ -1069,14 +1162,18 @@ class KameleoonClientImpl implements KameleoonClient
     {
         KameleoonLogger::debug("CALL: KameleoonClientImpl->loadDataFileLocal()");
         $dataFileJsonLocal = json_decode(file_get_contents($this->configurationFilePath, true));
-        if ($dataFileJsonLocal === null) {
+        if (!is_object($dataFileJsonLocal)) {
             throw new DataFileInvalid("Local data file is invalid");
         }
-        $this->applyNewConfiguration($dataFileJsonLocal);
+        try {
+            $this->applyNewConfiguration($dataFileJsonLocal);
+        } catch (Throwable $e) {
+            throw new DataFileInvalid("Local data file is invalid: " . $e->getMessage(), $e);
+        }
         KameleoonLogger::debug("RETURN: KameleoonClientImpl->loadDataFileLocal()");
     }
 
-    private function updateConfigurationExclusively(...$args)
+    private function updateDataFileExclusively(...$args)
     {
         $fp = fopen($this->configurationFilePath, "r+");
         if ($fp === false) {
@@ -1088,7 +1185,7 @@ class KameleoonClientImpl implements KameleoonClient
         }
         try {
             if (flock($fp, LOCK_EX)) {
-                $this->updateConfiguration(...$args);
+                $this->updateDataFile(...$args);
                 flock($fp, LOCK_UN);
             }
         } finally {
@@ -1096,10 +1193,10 @@ class KameleoonClientImpl implements KameleoonClient
         }
     }
 
-    private function updateConfiguration(int $timeout, bool $forceNetworkRequest = false)
+    private function updateDataFile(int $timeout, bool $forceNetworkRequest = false)
     {
         KameleoonLogger::debug(
-            "CALL: KameleoonClientImpl->updateConfiguration(timeout: %s, forceNetworkRequest: %s)",
+            "CALL: KameleoonClientImpl->updateDataFile(timeout: %s, forceNetworkRequest: %s)",
             $timeout,
             $forceNetworkRequest
         );
@@ -1118,6 +1215,10 @@ class KameleoonClientImpl implements KameleoonClient
                         }
                         file_put_contents($this->configurationFilePath, json_encode($dataFileJsonRemote));
                         $this->applyNewConfiguration($dataFileJsonRemote);
+                        $this->eventManager->fireDataFileUpdate(new DataFileUpdateEvent(
+                            DataFileUpdateEvent::SOURCE_POLLING,
+                            $this->dataManager->getDataFile()->getDateModified()
+                        ));
                         $updated = true;
                     }
                 }
@@ -1127,15 +1228,14 @@ class KameleoonClientImpl implements KameleoonClient
                 "Saved data file will be used. The file needs to be updated, but an error occurred: " . $e->getMessage()
             );
         } finally {
-            // Updating data file modification time in any case
-            // to prevent recurring CC requests when the server is down.
+            // Updating data file modification time in any case to prevent recurring CC requests when the server is down.
             $this->updateConfigurationFileModificationTime();
         }
         if (!$updated && ($dataFile === null)) {
             $this->loadDataFileLocal();
         }
         KameleoonLogger::debug(
-            "RETURN: KameleoonClientImpl->updateConfiguration(timeout: %s, forceNetworkRequest: %s)",
+            "RETURN: KameleoonClientImpl->updateDataFile(timeout: %s, forceNetworkRequest: %s)",
             $timeout,
             $forceNetworkRequest
         );
@@ -1350,7 +1450,7 @@ class KameleoonClientImpl implements KameleoonClient
             $timeout
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         if ($variationKey !== null) {
             $ruleInfo = $this->dataManager->getDataFile()->getRuleInfoByExpId($experimentId);
             if ($ruleInfo === null) {
@@ -1388,7 +1488,7 @@ class KameleoonClientImpl implements KameleoonClient
             $timeout
         );
         VisitorCodeManager::validateVisitorCode($visitorCode);
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $segments = [];
         foreach ($this->dataManager->getDataFile()->getAudienceTrackingSegments() as $segment) {
             if ($this->targetingManager->checkTargeting($visitorCode, null, $segment)) {
@@ -1409,7 +1509,7 @@ class KameleoonClientImpl implements KameleoonClient
     public function getDataFile(?int $timeout = null): Types\DataFile
     {
         KameleoonLogger::info("CALL: KameleoonClientImpl->getDataFile()");
-        $this->loadConfiguration($timeout);
+        $this->loadDataFile($timeout);
         $dataFile = $this->dataManager->getExternalDataFile();
         KameleoonLogger::info("RETURN: KameleoonClientImpl->getDataFile() -> (dataFile: %s)", $dataFile);
         return $dataFile;
